@@ -1,0 +1,592 @@
+[
+  {
+    "id": "explain-easy",
+    "task": "explain",
+    "difficulty": "easy",
+    "messages": [{ "role": "user", "content": "Erkläre addDays" }],
+    "formula": "",
+    "referenceOutput": {
+      "answer": "addDays(dDatum, iTage) addiert eine Anzahl von Tagen zu einem Datum. Parameter: dDatum (Date/Timestamp), iTage (Anzahl Tage, negativ zum Subtrahieren). Beispiel: addDays(date(), 7) liefert das Datum in einer Woche."
+    }
+  },
+  {
+    "id": "explain-medium",
+    "task": "explain",
+    "difficulty": "medium",
+    "messages": [{ "role": "user", "content": "Was macht firstDateOfPeriod und wann nutzt man es?" }],
+    "formula": "",
+    "referenceOutput": {
+      "answer": "firstDateOfPeriod(dDatum, sPeriode) ermittelt das Anfangsdatum einer Periode. sPeriode: DAY, WEEK, WEEK_MONTH, MONTH, QUARTER oder YEAR. Nutzen: z.B. Monatsanfang für ein beliebiges Datum: firstDateOfPeriod(date(), \"MONTH\")."
+    }
+  },
+  {
+    "id": "explain-hard",
+    "task": "explain",
+    "difficulty": "hard",
+    "messages": [{ "role": "user", "content": "Erkläre den Unterschied zwischen addDays, addMonths und addYears und wann welche Funktion nutzen." }],
+    "formula": "",
+    "referenceOutput": {
+      "answer": "addDays addiert/subtrahiert Tage (z.B. Fristen, Liefertermine). addMonths addiert Monate (z.B. Ablaufdatum). addYears addiert Jahre. Wichtig: addMonths/addYears berücksichtigen Monatslängen (z.B. 31.01 + 1 Monat = 28./29.02), addDays arbeitet tagegenau."
+    }
+  },
+  {
+    "id": "correct-easy",
+    "task": "correct",
+    "difficulty": "easy",
+    "messages": [{ "role": "user", "content": "Korrigiere diese Formel" }],
+    "formula": "addDays(1, 2)",
+    "referenceOutput": {
+      "answer": "addDays erwartet (dDatum, iTage). Korrektur: addDays(date(), 7) oder addDays(field(\"LiefDat\"), 2). addDays(1, 2) ist falsch – 1 ist kein Datum."
+    }
+  },
+  {
+    "id": "correct-medium",
+    "task": "correct",
+    "difficulty": "medium",
+    "messages": [{ "role": "user", "content": "Die Formel hat einen Fehler, bitte korrigieren" }],
+    "formula": "addDays(date(), 7) formatDate",
+    "referenceOutput": {
+      "answer": "formatDate muss mit Klammern und Argumenten aufgerufen werden. Korrektur: formatDate(addDays(date(), 7), \"dd.MM.yyyy\") – zuerst addDays für das Zieldatum, dann formatDate für die Ausgabe."
+    }
+  },
+  {
+    "id": "correct-hard",
+    "task": "correct",
+    "difficulty": "hard",
+    "messages": [{ "role": "user", "content": "Korrigiere die Formel" }],
+    "formula": "firstDateOfPeriod(date(), 'month')",
+    "referenceOutput": {
+      "answer": "firstDateOfPeriod erwartet sPeriode in Großbuchstaben. Korrektur: firstDateOfPeriod(date(), \"MONTH\") – nicht 'month'."
+    }
+  },
+  {
+    "id": "generate-easy",
+    "task": "generate",
+    "difficulty": "easy",
+    "messages": [{ "role": "user", "content": "Formel: 7 Tage zum aktuellen Datum addieren" }],
+    "formula": "",
+    "referenceOutput": {
+      "answer": "addDays(date(), 7)"
+    }
+  },
+  {
+    "id": "generate-medium",
+    "task": "generate",
+    "difficulty": "medium",
+    "messages": [{ "role": "user", "content": "Formel: Das Datum des Monatsanfangs für das aktuelle Datum" }],
+    "formula": "",
+    "referenceOutput": {
+      "answer": "firstDateOfPeriod(date(), \"MONTH\")"
+    }
+  },
+  {
+    "id": "generate-hard",
+    "task": "generate",
+    "difficulty": "hard",
+    "messages": [{ "role": "user", "content": "Formel: Den Betrag-Feldwert als Absolutwert, wenn er negativ ist, sonst 0" }],
+    "formula": "",
+    "referenceOutput": {
+      "answer": "iif(field(\"Betrag\") < 0, abs(field(\"Betrag\")), 0)"
+    }
+  },
+  {
+    "id": "generate-invalid-field",
+    "task": "generate",
+    "difficulty": "hard",
+    "messages": [{ "role": "user", "content": "Erstelle mir eine Formel, dass das Lieferdatum um drei Monate addiert wird und Tag und Monat (ausgeschrieben) konkateniert wird. Dann das Anlieferungsdatum dazuhängen." }],
+    "formula": "",
+    "referenceOutput": {
+      "answer": "Der Agent sollte Feedback geben: Das Feld \"Anlieferungsdatum\" existiert nicht. Vermutlich ist \"Lieferdatum\" gemeint (oder ein anderer Feldname). Bitte klären oder das korrekte Feld nennen."
+    }
+  },
+  {
+    "id": "generate-complex-date",
+    "task": "generate",
+    "difficulty": "hard",
+    "messages": [{ "role": "user", "content": "Erstelle mir eine Formel, dass das Lieferdatum um drei Monate addiert wird und Tag und Monat (ausgeschrieben) konkateniert wird. Dann das Lieferdatum dazuhängen." }],
+    "formula": "",
+    "referenceOutput": {
+      "answer": "getPartOfDate(addMonths(field(\"LiefDat\"), 3), \"DATE\") + getNameOfMonth(addMonths(field(\"LiefDat\"), 3), false, \"de\") + formatDate(field(\"LiefDat\"), \"dd.MM.yyyy\")"
+    }
+  },
+  {
+    "id": "generate-vague",
+    "task": "generate",
+    "difficulty": "medium",
+    "messages": [{ "role": "user", "content": "Hallo, kannst du mir eine Formel mit Datum machen?" }],
+    "formula": "",
+    "referenceOutput": {
+      "answer": "Der Agent sollte nachfragen: Was genau soll die Formel tun? (z.B. Datum formatieren, Tage addieren, Monatsanfang, Feldwert lesen?)"
+    }
+  },
+  {
+    "id": "explain-round-iif",
+    "task": "explain",
+    "difficulty": "medium",
+    "messages": [{ "role": "user", "content": "Erkläre diese Formel: round(field(\"Betrag\")/100, 2)" }],
+    "formula": "round(field(\"Betrag\")/100, 2)",
+    "referenceOutput": {
+      "answer": "round(nZahl, iStellen) rundet den ersten Parameter auf die angegebene Anzahl Nachkommastellen. Hier wird der Betrag durch 100 geteilt (z.B. Cent in Euro) und auf 2 Dezimalstellen gerundet."
+    }
+  },
+  {
+    "id": "explain-iif-isEmpty",
+    "task": "explain",
+    "difficulty": "hard",
+    "messages": [{ "role": "user", "content": "Was macht iif(isEmpty(field(\"Kunde\")), field(\"Betrag\")*-1, field(\"Betrag\"))?" }],
+    "formula": "iif(isEmpty(field(\"Kunde\")), field(\"Betrag\")*-1, field(\"Betrag\"))",
+    "referenceOutput": {
+      "answer": "iif prüft die Bedingung isEmpty(field(\"Kunde\")). Wenn Kunde leer ist, wird der Betrag negiert (Saldo-Vorzeichenumkehr z.B. für Soll/Haben). Sonst bleibt der Betrag unverändert."
+    }
+  },
+  {
+    "id": "explain-getPartOfDate",
+    "task": "explain",
+    "difficulty": "medium",
+    "messages": [{ "role": "user", "content": "Erkläre getPartOfDate und was DAY_OF_MONTH, MONTH, YEAR bedeuten" }],
+    "formula": "getPartOfDate(field(\"LiefDat\"), \"DAY_OF_MONTH\")",
+    "referenceOutput": {
+      "answer": "getPartOfDate(dDatum, sDatumsbestandteil) extrahiert einen Datumsteil als Zahl. DAY_OF_MONTH = Tag (1–31), MONTH = Monat (1–12), YEAR = Jahr. Beispiel: getPartOfDate(field(\"LiefDat\"), \"DAY_OF_MONTH\") liefert den Tag des Lieferdatums."
+    }
+  },
+  {
+    "id": "explain-strFill-parseDate",
+    "task": "explain",
+    "difficulty": "hard",
+    "messages": [{ "role": "user", "content": "Erkläre strFill und wie man damit ein Datum für parseDate formatiert" }],
+    "formula": "strFill(str(getPartOfDate(field(\"LiefDat\"), \"DAY_OF_MONTH\")), 2, \"R\", \"0\")",
+    "referenceOutput": {
+      "answer": "strFill(sString, iLaenge, aAusrichtung, aFuellZeichen) bringt einen String auf die gewünschte Länge. Mit \"R\" (rechts) und \"0\" werden führende Nullen ergänzt (z.B. 5 → \"05\"). Zusammen mit str und getPartOfDate baut man Datumsstrings für parseDate (z.B. DDMMYYYY)."
+    }
+  },
+  {
+    "id": "correct-strFill-args",
+    "task": "correct",
+    "difficulty": "medium",
+    "messages": [{ "role": "user", "content": "Die Formel funktioniert nicht, bitte korrigieren" }],
+    "formula": "strFill(getPartOfDate(date(), \"DAY_OF_MONTH\"), 2)",
+    "referenceOutput": {
+      "answer": "strFill erwartet einen String als erstes Argument. getPartOfDate liefert eine Zahl. Korrektur: strFill(str(getPartOfDate(date(), \"DAY_OF_MONTH\")), 2, \"R\", \"0\") – zuerst mit str in String umwandeln, dann strFill mit Ausrichtung und Füllzeichen."
+    }
+  },
+  {
+    "id": "correct-iif-missing-paren",
+    "task": "correct",
+    "difficulty": "medium",
+    "messages": [{ "role": "user", "content": "Korrigiere die Formel" }],
+    "formula": "iif isEmpty(field(\"Kunde\")), 0, field(\"Betrag\")",
+    "referenceOutput": {
+      "answer": "iif erwartet die Bedingung als erstes Argument in Klammern. Korrektur: iif(isEmpty(field(\"Kunde\")), 0, field(\"Betrag\")) – isEmpty(...) muss in Klammern stehen."
+    }
+  },
+  {
+    "id": "correct-field-typo",
+    "task": "correct",
+    "difficulty": "easy",
+    "messages": [{ "role": "user", "content": "Die Formel liefert einen Fehler" }],
+    "formula": "field(\"LiefDatum\")",
+    "referenceOutput": {
+      "answer": "Das Feld \"LiefDatum\" existiert nicht. Korrektur: field(\"LiefDat\") – der interne Feldname für Lieferdatum ist LiefDat."
+    }
+  },
+  {
+    "id": "generate-round-betrag",
+    "task": "generate",
+    "difficulty": "medium",
+    "messages": [{ "role": "user", "content": "Formel: Betrag auf 2 Nachkommastellen runden" }],
+    "formula": "",
+    "referenceOutput": {
+      "answer": "round(field(\"Betrag\"), 2)"
+    }
+  },
+  {
+    "id": "generate-saldo-vorzeichen",
+    "task": "generate",
+    "difficulty": "hard",
+    "messages": [{ "role": "user", "content": "Formel: Wenn Kunde leer ist, Betrag negieren, sonst Betrag unverändert (Saldo +/-)" }],
+    "formula": "",
+    "referenceOutput": {
+      "answer": "iif(isEmpty(field(\"Kunde\")), field(\"Betrag\") * -1, field(\"Betrag\"))"
+    }
+  },
+  {
+    "id": "generate-tag-des-monats",
+    "task": "generate",
+    "difficulty": "easy",
+    "messages": [{ "role": "user", "content": "Formel: Den Tag des Monats aus dem Lieferdatum auslesen" }],
+    "formula": "",
+    "referenceOutput": {
+      "answer": "getPartOfDate(field(\"LiefDat\"), \"DAY_OF_MONTH\")"
+    }
+  },
+  {
+    "id": "generate-jahre-seit-erstellung",
+    "task": "generate",
+    "difficulty": "hard",
+    "messages": [{ "role": "user", "content": "Formel: Jahre seit Erstellungsdatum berechnen (0 wenn Erstellungsdatum leer)" }],
+    "formula": "",
+    "referenceOutput": {
+      "answer": "iif(containsData(field(\"ErstellDat\")), getPartOfDate(dateTime(), \"YEAR\") - getPartOfDate(field(\"ErstellDat\"), \"YEAR\"), 0)"
+    }
+  },
+  {
+    "id": "generate-vormonat-lieferdatum",
+    "task": "generate",
+    "difficulty": "hard",
+    "messages": [{ "role": "user", "content": "Formel: Den Vormonat zum Lieferdatum berechnen (z.B. für Terminaviso)" }],
+    "formula": "",
+    "referenceOutput": {
+      "answer": "addMonths(parseDate(strChain(\"\", strFill(str(getPartOfDate(field(\"LiefDat\"), \"DAY_OF_MONTH\")), 2, \"R\", \"0\"), strFill(str(getPartOfDate(field(\"LiefDat\"), \"MONTH\")), 2, \"R\", \"0\"), str(getPartOfDate(field(\"LiefDat\"), \"YEAR\"))), \"DDMMYYYY\"), -1)"
+    }
+  },
+  {
+    "id": "generate-betrag-mit-handelskosten",
+    "task": "generate",
+    "difficulty": "medium",
+    "messages": [{ "role": "user", "content": "Formel: Betrag mit Handelskosten-Prozent (Feld Handelskosten) aufschlagen und runden" }],
+    "formula": "",
+    "referenceOutput": {
+      "answer": "round(field(\"Betrag\") * (1 + field(\"Handelskosten\") / 100), 2)"
+    }
+  },
+  {
+    "id": "generate-artikel-beschreibung",
+    "task": "generate",
+    "difficulty": "medium",
+    "messages": [{ "role": "user", "content": "Formel: Artikelart, Artikelnummer und Bezeichnung mit Bindestrichen verkettet" }],
+    "formula": "",
+    "referenceOutput": {
+      "answer": "strChain(\" - \", field(\"Artikelart\"), field(\"ArtNr\"), field(\"Bez\"))"
+    }
+  },
+  {
+    "id": "explain-collSum",
+    "task": "explain",
+    "difficulty": "medium",
+    "messages": [{ "role": "user", "content": "Was macht collSum und wann nutzt man es?" }],
+    "formula": "collSum(\"Positionen\", \"Betrag\", filter())",
+    "referenceOutput": {
+      "answer": "collSum(sCollName, sFeldName, oFilter?) summiert die Werte eines Feldes über alle Datensätze einer Sammlung. Optional: filter(filterComp(...)) oder filter(filterOp(...)) für Bedingungen. Nutzen: z.B. Summe aller Positionen-Beträge oder Beträge gefiltert nach Artikelart."
+    }
+  },
+  {
+    "id": "explain-filter-filterComp",
+    "task": "explain",
+    "difficulty": "hard",
+    "messages": [{ "role": "user", "content": "Erkläre filter und filterComp anhand dieser Formel" }],
+    "formula": "collSum(\"Positionen\", \"Betrag\", filter(filterComp(\"Artikelart\", \"=\", \"Handel\")))",
+    "referenceOutput": {
+      "answer": "filter() erzeugt einen Filter für Sammlungsfunktionen. filterComp(sFeld, sOp, xWert) definiert eine Bedingung (z.B. \"=\" für Gleichheit). filter(filterComp(...)) übergibt nur Datensätze, die die Bedingung erfüllen. Hier: Summe aller Beträge, wo Artikelart = \"Handel\"."
+    }
+  },
+  {
+    "id": "explain-parseBigDecimal",
+    "task": "explain",
+    "difficulty": "easy",
+    "messages": [{ "role": "user", "content": "Wofür ist parseBigDecimal?" }],
+    "formula": "parseBigDecimal(\"0,00\")",
+    "referenceOutput": {
+      "answer": "parseBigDecimal(sWert) wandelt einen String in eine Dezimalzahl um. Unterstützt deutsches Format (Komma als Dezimaltrennzeichen, Punkt als Tausendertrennzeichen). Beispiel: parseBigDecimal(\"1.234,56\") ergibt 1234.56."
+    }
+  },
+  {
+    "id": "correct-collSum-wrong-collection",
+    "task": "correct",
+    "difficulty": "easy",
+    "messages": [{ "role": "user", "content": "Die Formel liefert einen Fehler" }],
+    "formula": "collSum(\"Position\", \"Betrag\", filter())",
+    "referenceOutput": {
+      "answer": "Die Sammlung \"Position\" existiert nicht. Korrektur: collSum(\"Positionen\", \"Betrag\", filter()) – der Sammlungsname ist \"Positionen\" (Plural)."
+    }
+  },
+  {
+    "id": "correct-filterComp-arity",
+    "task": "correct",
+    "difficulty": "medium",
+    "messages": [{ "role": "user", "content": "Korrigiere die Formel" }],
+    "formula": "collSum(\"Positionen\", \"Betrag\", filter(filterComp(\"Artikelart\", \"Handel\")))",
+    "referenceOutput": {
+      "answer": "filterComp erwartet genau 3 Argumente: Feldname, Operator, Wert. Korrektur: filterComp(\"Artikelart\", \"=\", \"Handel\")."
+    }
+  },
+  {
+    "id": "generate-collSum-positionen",
+    "task": "generate",
+    "difficulty": "medium",
+    "messages": [{ "role": "user", "content": "Formel: Summe aller Beträge aus der Positionen-Sammlung" }],
+    "formula": "",
+    "referenceOutput": {
+      "answer": "collSum(\"Positionen\", \"Betrag\", filter())"
+    }
+  },
+  {
+    "id": "generate-collSum-filtered",
+    "task": "generate",
+    "difficulty": "hard",
+    "messages": [{ "role": "user", "content": "Formel: Summe der Beträge aus Positionen, nur wo Artikelart = Handel" }],
+    "formula": "",
+    "referenceOutput": {
+      "answer": "collSum(\"Positionen\", \"Betrag\", filter(filterComp(\"Artikelart\", \"=\", \"Handel\")))"
+    }
+  },
+  {
+    "id": "generate-collCount",
+    "task": "generate",
+    "difficulty": "easy",
+    "messages": [{ "role": "user", "content": "Formel: Anzahl der Positionen zählen" }],
+    "formula": "",
+    "referenceOutput": {
+      "answer": "collCount(\"Positionen\", filter())"
+    }
+  },
+  {
+    "id": "generate-collConcat",
+    "task": "generate",
+    "difficulty": "medium",
+    "messages": [{ "role": "user", "content": "Formel: Alle Bezeichnungen der Positionen mit Komma getrennt verkettet" }],
+    "formula": "",
+    "referenceOutput": {
+      "answer": "collConcat(\"Positionen\", \"Bez\", \", \", null, filter())"
+    }
+  },
+  {
+    "id": "generate-collConcatDistinct",
+    "task": "generate",
+    "difficulty": "hard",
+    "messages": [{ "role": "user", "content": "Formel: Eindeutige Artikelarten aus Positionen mit Pipe getrennt" }],
+    "formula": "",
+    "referenceOutput": {
+      "answer": "collConcatDistinct(\"Positionen\", \"Artikelart\", \"|\", null, filter())"
+    }
+  },
+  {
+    "id": "generate-getCollEntry",
+    "task": "generate",
+    "difficulty": "medium",
+    "messages": [{ "role": "user", "content": "Formel: Erste Position aus der Sammlung holen (oder null)" }],
+    "formula": "",
+    "referenceOutput": {
+      "answer": "getCollEntry(\"Positionen\", null, null)"
+    }
+  },
+  {
+    "id": "explain-dauer-stunden",
+    "task": "explain",
+    "difficulty": "medium",
+    "messages": [{ "role": "user", "content": "Erkläre diese Formel: round(field(\"Dauer\")/3600000, 2)" }],
+    "formula": "round(field(\"Dauer\")/3600000, 2)",
+    "referenceOutput": {
+      "answer": "Dauer ist in Millisekunden. 3600000 ms = 1 Stunde. Die Formel wandelt Dauer in Stunden um und rundet auf 2 Dezimalstellen. Typisch für Arbeitszeiten."
+    }
+  },
+  {
+    "id": "explain-iif-verrech",
+    "task": "explain",
+    "difficulty": "medium",
+    "messages": [{ "role": "user", "content": "Was macht iif(field(\"Verrech\"), field(\"Betrag\"), 0)?" }],
+    "formula": "iif(field(\"Verrech\"), field(\"Betrag\"), 0)",
+    "referenceOutput": {
+      "answer": "Wenn Verrech (verrechnet) wahr ist, wird der Betrag geliefert, sonst 0. Typisch für verrechenbare vs. nicht verrechenbare Zeiten/Beträge."
+    }
+  },
+  {
+    "id": "explain-zuschlag-prozent",
+    "task": "explain",
+    "difficulty": "hard",
+    "messages": [{ "role": "user", "content": "Erkläre (round(field(\"Grundlage\")/field(\"Einstandsbetrag\")*100,2))-100" }],
+    "formula": "(round(field(\"Grundlage\")/field(\"Einstandsbetrag\")*100,2))-100",
+    "referenceOutput": {
+      "answer": "Berechnet den Zuschlag in Prozent: (Grundlage/Einstandsbetrag)*100 - 100. Beispiel: 250/200=1,25 → 125-100=25% Zuschlag."
+    }
+  },
+  {
+    "id": "generate-dauer-stunden",
+    "task": "generate",
+    "difficulty": "medium",
+    "messages": [{ "role": "user", "content": "Formel: Dauer (in ms) in Stunden umrechnen, 2 Dezimalstellen" }],
+    "formula": "",
+    "referenceOutput": {
+      "answer": "round(field(\"Dauer\") / 3600000, 2)"
+    }
+  },
+  {
+    "id": "generate-verrechnet-betrag",
+    "task": "generate",
+    "difficulty": "medium",
+    "messages": [{ "role": "user", "content": "Formel: Betrag nur wenn verrechnet, sonst 0" }],
+    "formula": "",
+    "referenceOutput": {
+      "answer": "iif(field(\"Verrech\"), field(\"Betrag\"), 0)"
+    }
+  },
+  {
+    "id": "generate-leistungstage",
+    "task": "generate",
+    "difficulty": "medium",
+    "messages": [{ "role": "user", "content": "Formel: Leistungstage (Anzahl Tage zwischen LeistVon und LeistBis)" }],
+    "formula": "",
+    "referenceOutput": {
+      "answer": "round((field(\"LeistBis\") - field(\"LeistVon\")) / 86400000)"
+    }
+  },
+  {
+    "id": "generate-zuschlag-prozent",
+    "task": "generate",
+    "difficulty": "hard",
+    "messages": [{ "role": "user", "content": "Formel: Zuschlag in Prozent aus Grundlage und Einstandsbetrag" }],
+    "formula": "",
+    "referenceOutput": {
+      "answer": "(round(field(\"Grundlage\") / field(\"Einstandsbetrag\") * 100, 2)) - 100"
+    }
+  },
+  {
+    "id": "generate-collSum-offen",
+    "task": "generate",
+    "difficulty": "hard",
+    "messages": [{ "role": "user", "content": "Formel: Summe der Beträge aus Positionen, nur offene Positionen" }],
+    "formula": "",
+    "referenceOutput": {
+      "answer": "collSum(\"Positionen\", \"Betrag\", filter(filterComp(\"Offen\", \"=\", true)))"
+    }
+  },
+  {
+    "id": "generate-collSum-dienstleistung-verrechnet",
+    "task": "generate",
+    "difficulty": "hard",
+    "messages": [{ "role": "user", "content": "Formel: Summe der Dauer aus Dienstleistungszeiten, nur verrechnete" }],
+    "formula": "",
+    "referenceOutput": {
+      "answer": "collSum(\"Dienstleistungszeiten\", \"Dauer\", filter(filterComp(\"Verrech\", \"=\", true)))"
+    }
+  },
+  {
+    "id": "generate-dauer-stunden-dienstleistung",
+    "task": "generate",
+    "difficulty": "hard",
+    "messages": [{ "role": "user", "content": "Formel: Summe der Dauer aus Dienstleistungszeiten in Stunden (nur verrechnete), 2 Dezimalstellen" }],
+    "formula": "",
+    "referenceOutput": {
+      "answer": "round(collSum(\"Dienstleistungszeiten\", \"Dauer\", filter(filterComp(\"Verrech\", \"=\", true))) / 3600000, 2)"
+    }
+  },
+  {
+    "id": "explain-expSel",
+    "task": "explain",
+    "difficulty": "medium",
+    "messages": [{ "role": "user", "content": "Was macht expSel und wann nutzt man es statt iif?" }],
+    "formula": "expSel(field(\"Typ\") - 1, \"Aktiv\", \"Passiv\", \"Sonstige\")",
+    "referenceOutput": {
+      "answer": "expSel(iAuswahl, x1, x2, ...) wählt per Index (0-basiert) einen Operanden. Statt verschachtelter iif bei vielen Fällen: expSel(field(\"Typ\")-1, \"A\", \"B\", \"C\") – Typ 1→A, 2→B, 3→C."
+    }
+  },
+  {
+    "id": "generate-expSel-typ",
+    "task": "generate",
+    "difficulty": "hard",
+    "messages": [{ "role": "user", "content": "Formel: Je nach Typ (1,2,3) den Text \"Aktiv\", \"Passiv\" oder \"Sonstige\"" }],
+    "formula": "",
+    "referenceOutput": {
+      "answer": "expSel(field(\"Typ\") - 1, \"Aktiv\", \"Passiv\", \"Sonstige\")"
+    }
+  },
+  {
+    "id": "explain-validation-verrech-kunde",
+    "task": "explain",
+    "difficulty": "medium",
+    "messages": [{ "role": "user", "content": "Was prüft diese Validierungsformel: field(\"Verrech\") && isEmpty(field(\"Kunde\"))?" }],
+    "formula": "field(\"Verrech\") && isEmpty(field(\"Kunde\"))",
+    "referenceOutput": {
+      "answer": "Die Formel liefert true (Fehler), wenn verrechenbar markiert ist, aber kein Kunde angegeben wurde. Typische Validierung: Verrechnung ohne Kunde ist nicht erlaubt."
+    }
+  },
+  {
+    "id": "explain-validation-beschreibung-kurz",
+    "task": "explain",
+    "difficulty": "medium",
+    "messages": [{ "role": "user", "content": "Erkläre diese Validierung: containsData(field(\"Dauer\")) && strLen(field(\"Bem\")) < 20" }],
+    "formula": "containsData(field(\"Dauer\")) && strLen(field(\"Bem\")) < 20",
+    "referenceOutput": {
+      "answer": "Liefert true (Fehler), wenn Dauer vorhanden ist, die Beschreibung (Bem) aber weniger als 20 Zeichen hat. Erzwingt aussagekräftige Beschreibungen bei Dienstleistungszeiten."
+    }
+  },
+  {
+    "id": "explain-strMatches",
+    "task": "explain",
+    "difficulty": "medium",
+    "messages": [{ "role": "user", "content": "Wofür nutzt man strMatches in Validierungen?" }],
+    "formula": "strMatches(field(\"Bez\"), \".*<<(.*?)>>.*\")",
+    "referenceOutput": {
+      "answer": "strMatches(sString, sPattern) prüft, ob ein String einem Regex entspricht. Typisch: Platzhalter erkennen (z.B. <<...>>), die noch ersetzt werden müssen."
+    }
+  },
+  {
+    "id": "generate-validation-verrech-ohne-kunde",
+    "task": "generate",
+    "difficulty": "medium",
+    "messages": [{ "role": "user", "content": "Validierungsformel: true wenn verrechenbar aber Kunde leer (Fehlerfall)" }],
+    "formula": "",
+    "referenceOutput": {
+      "answer": "field(\"Verrech\") && isEmpty(field(\"Kunde\"))"
+    }
+  },
+  {
+    "id": "generate-validation-beschreibung-kurz",
+    "task": "generate",
+    "difficulty": "hard",
+    "messages": [{ "role": "user", "content": "Validierung: Fehler wenn Dauer vorhanden und Beschreibung unter 20 Zeichen" }],
+    "formula": "",
+    "referenceOutput": {
+      "answer": "containsData(field(\"Dauer\")) && strLen(field(\"Bem\")) < 20"
+    }
+  },
+  {
+    "id": "generate-validation-offen-positionen",
+    "task": "generate",
+    "difficulty": "hard",
+    "messages": [{ "role": "user", "content": "Validierung: Fehler wenn Offen und es gibt offene Positionen (Offen=true)" }],
+    "formula": "",
+    "referenceOutput": {
+      "answer": "field(\"Offen\") && collCount(\"Positionen\", filter(filterComp(\"Offen\", \"=\", true))) > 0"
+    }
+  },
+  {
+    "id": "generate-validation-ungueltige-dienstleistung",
+    "task": "generate",
+    "difficulty": "hard",
+    "messages": [{ "role": "user", "content": "Validierung: Fehler wenn Dienstleistungszeiten mit FF_BeschrUngueltig=true existieren" }],
+    "formula": "",
+    "referenceOutput": {
+      "answer": "collCount(\"Dienstleistungszeiten\", filter(filterComp(\"FF_BeschrUngueltig\", \"=\", true))) > 0"
+    }
+  },
+  {
+    "id": "generate-validation-platzhalter",
+    "task": "generate",
+    "difficulty": "hard",
+    "messages": [{ "role": "user", "content": "Validierung: Fehler wenn Bezeichnung Platzhalter <<...>> enthält" }],
+    "formula": "",
+    "referenceOutput": {
+      "answer": "strMatches(field(\"Bez\"), \".*<<(.*?)>>.*\")"
+    }
+  },
+  {
+    "id": "generate-validation-session-field",
+    "task": "generate",
+    "difficulty": "hard",
+    "messages": [{ "role": "user", "content": "Formel: UserEmployee.Code aus der Session lesen" }],
+    "formula": "",
+    "referenceOutput": {
+      "answer": "field(\"UserEmployee.Code\", sessionMan())"
+    }
+  },
+  {
+    "id": "generate-validation-status-zuordnung",
+    "task": "generate",
+    "difficulty": "medium",
+    "messages": [{ "role": "user", "content": "Validierung: Fehler wenn Status > 2 und Kunde leer (Zuweisung fehlt)" }],
+    "formula": "",
+    "referenceOutput": {
+      "answer": "isEmpty(field(\"Kunde\")) && field(\"Status\") > 2"
+    }
+  }
+]
