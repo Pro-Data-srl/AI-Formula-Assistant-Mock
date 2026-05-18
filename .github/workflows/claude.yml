@@ -34,6 +34,8 @@ jobs:
         id: claude
         uses: anthropics/claude-code-action@v1
         with:
+          # Allow bot-initiated threads (e.g. Cursor) when they mention the trigger phrase.
+          allowed_bots: "cursor,cursor[bot]"
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
 
           # This is an optional setting that allows Claude to read CI results on PRs
