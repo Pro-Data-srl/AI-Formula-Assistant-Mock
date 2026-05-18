@@ -66,7 +66,7 @@ The `ai/react` export is deprecated. Use `@ai-sdk/react` for `useChat`, `useComp
 
 We use **both** Vercel AI SDK and LangChain:
 - **Vercel AI** for client hooks (`useChat`) and title generation (`getVercelAITitleModel`)
-- **LangChain** for all chat agents (Direct, RAG, Clarification): `formula-direct-chat.ts`, `formula-rag-graph.ts`, `formula-clarification-graph.ts` — unified streaming via `createDataStreamResponse` + LangChain `model.stream()`; LangSmith tracing for all
+- **LangChain** for all chat agents (Direct, RAG, Clarification): `formula-direct-chat.ts`, `formula-rag-graph.ts` / `formula-clarification-graph.ts` (both call `formula-unified-agent-graph.ts` — planning **coordinator** LLM without tools, **tool-coordinator** LLM with tools including embedded RAG retrieval, deterministic validate/evaluate gate, then polish stream); LangSmith tracing for all. Env: `COORDINATOR_LLM`, `TOOL_COORDINATOR_LLM`, `AGENTIC_RAG_LLM` (inner plan/check), `CLARIFICATION_CHAT_LLM` (polish).
 
 ## Common Deprecations
 
