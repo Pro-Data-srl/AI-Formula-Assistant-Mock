@@ -2,6 +2,18 @@
  * Unified formula agent: planning coordinator LLM (no tools) + tool-coordinator LLM (tools)
  * + deterministic validate/evaluate gate before streaming polish.
  *
+ * **Unified:** one orchestrated API pipeline that combines the planning coordinator, the
+ * tool-capability layer, deterministic validation/evaluation, and streamed polish — replacing older
+ * separate flows (for example dedicated RAG vs clarification paths) with a single entry point
+ * (`runUnifiedFormulaAgent`).
+ *
+ * **LangGraph `StateGraph`:** This module does **not** build a LangGraph graph with `.addNode`,
+ * `.addEdge`, or `.compile()`. The outer coordinator rounds and the embedded RAG loop are plain
+ * TypeScript control flow. LangGraph appears only as **`ToolNode`** (`@langchain/langgraph/prebuilt`)
+ * inside `runToolCoordinatorPhase` to execute tool calls. Migrating the outer orchestration to an
+ * iterated `StateGraph` is a roadmap item if we want graph-as-declared-nodes instead of hand-written
+ * loops.
+ *
  * @author Lukas Alber
  */
 

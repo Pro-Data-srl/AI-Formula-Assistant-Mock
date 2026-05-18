@@ -29,6 +29,16 @@ The **`langchain`** package is not redundant with **`@langchain/core`**. Core ho
 
 **Version alignment:** LangChain.js publishes **`@langchain/*`** and **`langchain`** on independent semver lines that still target the same major (`1.x` today). The **`langchain`** package declares a **peer dependency** on a compatible **`@langchain/core`** range; npm resolves one shared `@langchain/core` for the tree (see `package-lock.json` after `npm install`). Keep all LangChain packages on the **same major** and refresh the lockfile when bumping `langchain` so peers stay satisfied.
 
+### Graph mode vs LangGraph `StateGraph`
+
+| Term | Meaning in this repo |
+|------|----------------------|
+| **`FORMULA_SOURCE=graph`** (legacy: `rag`) | API name for the **two-LLM** pipeline (planning coordinator → tool coordinator → deterministic gate → polish). |
+| **Unified** | One pipeline file (`formula-unified-agent-graph.ts`) that **unifies** those steps and shared status phases — not “unified LangGraph runtime”. |
+| **LangGraph today** | **`ToolNode`** in `tool-coordinator-phase.ts` only; **no** `.addNode` / `.addEdge` / `.compile()` for the outer agent. |
+| **Free agent** | LangChain **`createAgent`** ReAct loop (`formula-free-agent.ts`) — different implementation style from graph mode. |
+| **Future (product direction)** | Express graph-mode orchestration as an iterated **`StateGraph`** so control flow is graph-native, not only hand-written loops. Tracked in `docs/roadmap.md` (section 3.7). |
+
 ## Import Rules
 
 ### ✅ Use these

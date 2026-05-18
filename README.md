@@ -55,7 +55,7 @@ yourself.
 | Language         | TypeScript                                                    |
 | UI               | React 19, shadcn/ui, Tailwind CSS v4                          |
 | AI (chat)        | Vercel AI SDK (`ai` + `@ai-sdk/react`)                        |
-| AI (graphs/RAG)  | LangChain.js + LangGraph                                      |
+| AI (graph mode)  | LangChain.js; LangGraph **`ToolNode`** only (no outer `StateGraph` yet; see `docs/ai-stack.md`) |
 | LLM providers    | OpenAI and Anthropic (provider-agnostic config)               |
 | Database         | Postgres 16 + pgvector (via Docker Compose)                   |
 | ORM / migrations | Drizzle ORM + `drizzle-kit`                                   |

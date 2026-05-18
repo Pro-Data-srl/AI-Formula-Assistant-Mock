@@ -2,10 +2,12 @@
  * Graph agent mode: thin wrapper around the unified coordinator + tool-coordinator pipeline
  * (embedded RAG retrieval as a tool).
  *
- * **“Graph” vs LangGraph:** orchestration lives in `formula-unified-agent-graph.ts` (`runUnifiedFormulaAgent`:
- * coordinator rounds, structured output, deterministic review, polish stream). That file does **not**
- * compile a top-level LangGraph `StateGraph`. LangGraph is used inside `tool-coordinator-phase.ts` via
- * `ToolNode` from `@langchain/langgraph/prebuilt` to run tool calls in the tool-coordinator loop.
+ * **“Graph” vs LangGraph:** orchestration lives in `formula-unified-agent-graph.ts` (`runUnifiedFormulaAgent`).
+ * There is **no** LangGraph `StateGraph` with declared nodes and edges for the outer flow — only
+ * `ToolNode` inside `tool-coordinator-phase.ts`. See the **Unified** / **LangGraph `StateGraph`**
+ * section in that module’s file-level doc.
+ *
+ * **Naming:** `GraphFormulaAgentStatus` matches `UnifiedFormulaAgentStatus` from the same pipeline.
  *
  * @see `formula-unified-agent-graph.ts` — main control flow
  * @see `tool-coordinator-phase.ts` — `ToolNode` + tool execution loop

@@ -69,8 +69,7 @@ and the AI agent design.
 - [x] Drizzle schema (conversations, messages)
 - [x] **pgvector**: table `formula_docs` (embeddings), migration, seed
       script `npm run db:seed-formula-docs`
-- [x] **FORMULA_SOURCE**: env `direct` | `graph` (legacy `rag`) — switch between full
-      context in prompt vs. RAG (LangGraph)
+- [x] **FORMULA_SOURCE**: env `direct` | `graph` (legacy `rag`) | `free` (legacy `clarification`) — switch agent pipelines
 
 ### 3.2 Integration
 - [x] LLM API integration (OpenAI primary; provider-agnostic design,
@@ -89,8 +88,7 @@ and the AI agent design.
 ### 3.4 Context & Tools (agentic)
 - [x] **Context**: current formula, fields, available functions (in
       prompt)
-- [x] **RAG over function descriptions**: LangGraph plan → retrieve
-      (pgvector) → check → answer (with optional retry)
+- [x] **RAG over function descriptions**: agentic plan → retrieve (pgvector) → check → answer (with optional retry); embedded in graph mode via tools (imperative loops, not a LangGraph `StateGraph` shell)
 - [x] **Context**: chat history (in-session) — passed to LLM/RAG
 - [ ] **Agent memory layers** — typical layers still missing:
   - [ ] Short-term/working: in-session messages ✅, but no
@@ -153,6 +151,17 @@ ambiguous or insufficient. LangChain **`createAgent`** (ReAct) with tools
   clarification vs. answer responses.
 - Client renders a clarification question as an assistant message; the
   user replies and resubmits.
+
+### 3.7 Graph agent (unified pipeline)
+
+**Unified** means one orchestrated flow: planning coordinator LLM (structured, no tools) + tool
+coordinator LLM (tools, including embedded RAG) + deterministic validate/evaluate + streamed polish
+(`formula-unified-agent-graph.ts`, public API via `formula-graph-agent.ts`). It does **not** mean the
+outer runtime is already a LangGraph **`StateGraph`** with explicit nodes and edges.
+
+- [x] Shipping implementation (TypeScript coordinator loops + **`ToolNode`** in `tool-coordinator-phase.ts`)
+- [ ] **Future:** migrate outer orchestration to LangGraph **`StateGraph`** (nodes, edges, conditional
+      routing) so the graph agent matches a graph-first design; keep streaming and HITL contracts.
 
 ---
 
