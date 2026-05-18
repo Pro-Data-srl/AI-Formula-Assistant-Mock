@@ -19,7 +19,7 @@ How we use Vercel AI SDK and LangChain, and how to avoid deprecated APIs.
 | `@langchain/openai` | LangChain OpenAI (ChatOpenAI, OpenAIEmbeddings) |
 | `@langchain/anthropic` | LangChain Anthropic |
 | `@langchain/core` | LangChain core (messages, documents) |
-| `@langchain/langgraph` | LangGraph (tool nodes, embedded retrieval subgraph helpers) |
+| `@langchain/langgraph` | **`ToolNode`** (`@langchain/langgraph/prebuilt`) in the tool coordinator; the graph agent has **no** top-level compiled **`StateGraph`** in app code |
 | `langchain` | High-level agents (`createAgent`) for the **free** agent mode |
 | `@langchain/community` | LangChain community (e.g. pgvector) |
 
@@ -44,9 +44,9 @@ import { streamText, createDataStreamResponse, formatDataStreamPart } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { anthropic } from "@ai-sdk/anthropic";
 
-// LangChain (RAG graph, embeddings)
+// LangChain (embeddings, graph-mode tool batching)
 import { ChatOpenAI, OpenAIEmbeddings } from "@langchain/openai";
-import { StateGraph } from "@langchain/langgraph";
+import { ToolNode } from "@langchain/langgraph/prebuilt";
 import { AIMessage, HumanMessage } from "@langchain/core/messages";
 ```
 
@@ -65,7 +65,7 @@ The `ai/react` export is deprecated. Use `@ai-sdk/react` for `useChat`, `useComp
 |----------|---------|---------|
 | Chat UI (streaming, client) | `@ai-sdk/react` | `useChat` in AssistantChat |
 | Direct chat API (LangChain) | `@langchain/*` | `formula-direct-chat.ts`; same streaming pattern as graph/free |
-| **Graph** agent (coordinator + tools + embedded RAG) | `@langchain/*` | `formula-unified-agent-graph.ts` (via `formula-graph-agent.ts`) |
+| **Graph** agent (coordinator + tools + embedded RAG) | `@langchain/*` (+ `ToolNode` from LangGraph) | `formula-unified-agent-graph.ts` (via `formula-graph-agent.ts`); orchestration is TypeScript loops, not `StateGraph` |
 | **Free** agent (ReAct `createAgent`) | `langchain` + `@langchain/*` | `formula-free-agent.ts` |
 | Embeddings (pgvector) | `@langchain/openai` | `formulaEmbeddings` |
 | Provider config (Vercel) | `@ai-sdk/openai` | `getVercelAIChatModel` in llm-config |
