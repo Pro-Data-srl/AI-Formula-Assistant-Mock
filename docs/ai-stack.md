@@ -19,7 +19,7 @@ How we use Vercel AI SDK and LangChain, and how to avoid deprecated APIs.
 | `@langchain/openai` | LangChain OpenAI (ChatOpenAI, OpenAIEmbeddings) |
 | `@langchain/anthropic` | LangChain Anthropic |
 | `@langchain/core` | LangChain core (messages, documents) |
-| `@langchain/langgraph` | **`ToolNode`** (`@langchain/langgraph/prebuilt`) in the tool coordinator; the graph agent has **no** top-level compiled **`StateGraph`** in app code |
+| `@langchain/langgraph` | **`StateGraph`** in `formula-graph-stategraph.ts` (outer graph); **`ToolNode`** (`prebuilt`) in `tool-coordinator-phase.ts` |
 | `langchain` | High-level agents (`createAgent`) for the **free** agent mode |
 | `@langchain/community` | LangChain community (e.g. pgvector) |
 
@@ -29,15 +29,13 @@ The **`langchain`** package is not redundant with **`@langchain/core`**. Core ho
 
 **Version alignment:** LangChain.js publishes **`@langchain/*`** and **`langchain`** on independent semver lines that still target the same major (`1.x` today). The **`langchain`** package declares a **peer dependency** on a compatible **`@langchain/core`** range; npm resolves one shared `@langchain/core` for the tree (see `package-lock.json` after `npm install`). Keep all LangChain packages on the **same major** and refresh the lockfile when bumping `langchain` so peers stay satisfied.
 
-### Graph mode vs LangGraph `StateGraph`
+### Graph mode and LangGraph
 
 | Term | Meaning in this repo |
 |------|----------------------|
-| **`FORMULA_SOURCE=graph`** (legacy: `rag`) | API name for the **two-LLM** pipeline (planning coordinator → tool coordinator → deterministic gate → polish). |
-| **Unified** | One pipeline file (`formula-unified-agent-graph.ts`) that **unifies** those steps and shared status phases — not “unified LangGraph runtime”. |
-| **LangGraph today** | **`ToolNode`** in `tool-coordinator-phase.ts` only; **no** `.addNode` / `.addEdge` / `.compile()` for the outer agent. |
-| **Free agent** | LangChain **`createAgent`** ReAct loop (`formula-free-agent.ts`) — different implementation style from graph mode. |
-| **Future (product direction)** | Express graph-mode orchestration as an iterated **`StateGraph`** so control flow is graph-native, not only hand-written loops. Tracked in `docs/roadmap.md` (section 3.7). |
+| **`FORMULA_SOURCE=graph`** (legacy: `rag`) | Two-LLM pipeline compiled as a LangGraph **`StateGraph`** in `formula-graph-stategraph.ts` (`coordinate_plan` → `capabilities` / `finalize_review` → `polish`). |
+| **Free agent** | LangChain **`createAgent`** in `formula-free-agent.ts` — separate implementation style. |
+| **Shared pieces** | Tools, RAG prompts, polish prompt, `llm-config` — see `docs/agent-modules.md`. |
 
 ## Import Rules
 
@@ -54,8 +52,9 @@ import { streamText, createDataStreamResponse, formatDataStreamPart } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { anthropic } from "@ai-sdk/anthropic";
 
-// LangChain (embeddings, graph-mode tool batching)
+// LangChain (embeddings, LangGraph graph agent, tool batching)
 import { ChatOpenAI, OpenAIEmbeddings } from "@langchain/openai";
+import { StateGraph, Annotation, START, END } from "@langchain/langgraph";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
 import { AIMessage, HumanMessage } from "@langchain/core/messages";
 ```
@@ -75,7 +74,7 @@ The `ai/react` export is deprecated. Use `@ai-sdk/react` for `useChat`, `useComp
 |----------|---------|---------|
 | Chat UI (streaming, client) | `@ai-sdk/react` | `useChat` in AssistantChat |
 | Direct chat API (LangChain) | `@langchain/*` | `formula-direct-chat.ts`; same streaming pattern as graph/free |
-| **Graph** agent (coordinator + tools + embedded RAG) | `@langchain/*` (+ `ToolNode` from LangGraph) | `formula-unified-agent-graph.ts` (via `formula-graph-agent.ts`); orchestration is TypeScript loops, not `StateGraph` |
+| **Graph** agent (LangGraph `StateGraph` + tool `ToolNode`) | `@langchain/langgraph`, `@langchain/*` | `formula-graph-stategraph.ts` (via `formula-graph-agent.ts`); see `docs/agent-modules.md` |
 | **Free** agent (ReAct `createAgent`) | `langchain` + `@langchain/*` | `formula-free-agent.ts` |
 | Embeddings (pgvector) | `@langchain/openai` | `formulaEmbeddings` |
 | Provider config (Vercel) | `@ai-sdk/openai` | `getVercelAIChatModel` in llm-config |
@@ -84,7 +83,7 @@ The `ai/react` export is deprecated. Use `@ai-sdk/react` for `useChat`, `useComp
 
 We use **both** Vercel AI SDK and LangChain:
 - **Vercel AI** for client hooks (`useChat`) and title generation (`getVercelAITitleModel`)
-- **LangChain** for **direct** chat, **graph** agent (unified coordinator + tool coordinator + deterministic review + polish), and **free** agent (`createAgent` + tools + polish). Env: `COORDINATOR_LLM`, `TOOL_COORDINATOR_LLM`, `AGENTIC_RAG_LLM` (inner plan/check for embedded retrieval), `FORMULA_AGENT_LLM`, `CLARIFICATION_CHAT_LLM` (polish), `SIMPLE_CHAT_LLM` (direct).
+- **LangChain** for **direct** chat, **graph** agent (`StateGraph` + tool coordinator + deterministic review + polish), and **free** agent (`createAgent` + tools + polish). Env: `COORDINATOR_LLM`, `TOOL_COORDINATOR_LLM`, `AGENTIC_RAG_LLM` (inner plan/check for embedded retrieval), `FORMULA_AGENT_LLM`, `CLARIFICATION_CHAT_LLM` (polish), `SIMPLE_CHAT_LLM` (direct).
 
 ## Common Deprecations
 

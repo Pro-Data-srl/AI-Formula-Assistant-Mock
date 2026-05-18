@@ -1,6 +1,5 @@
 /**
- * Unified interface for agent target functions (Eval-Scripts, LangSmith evaluate).
- * All three agents (direct, graph, free) can be invoked with the same input/output shape.
+ * Shared input/output shape for eval scripts and LangSmith targets so **direct**, **graph**, and **free** agents can be invoked uniformly.
  */
 
 import { AgentModes, type AgentMode } from "@/lib/ai/llm-config";
@@ -8,13 +7,13 @@ import { runDirectChat } from "@/lib/ai/formula-direct-chat";
 import { runGraphFormulaAgent } from "@/lib/ai/formula-graph-agent";
 import { runFreeFormulaAgent } from "@/lib/ai/formula-free-agent";
 
-/** Unified input for all agent target functions. */
+/** Shared input for all agent target functions. */
 export type AgentTargetInput = {
   messages: { role: string; content: string }[];
   formula?: string;
 };
 
-/** Unified output for all agent target functions (LangSmith evaluate format). */
+/** Shared output for all agent target functions (LangSmith evaluate format). */
 export type AgentTargetOutput = {
   answer: string;
 };

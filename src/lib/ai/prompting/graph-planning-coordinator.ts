@@ -1,7 +1,9 @@
 /**
- * System prompt for the planning coordinator LLM (structured output only; no tools).
+ * System prompt for the graph agent planning coordinator LLM (structured output only; no tools).
+ *
+ * @author Lukas Alber
  */
-export const UNIFIED_COORDINATOR_SYSTEM = `Du bist der **Planungs-Koordinator** für einen Formel-Assistenten (deutsch).
+export const GRAPH_PLANNING_COORDINATOR_SYSTEM = `Du bist der **Planungs-Koordinator** für einen Formel-Assistenten (deutsch).
 
 ## Rolle
 - Du **planst** und **entwirfst** Antworten (inkl. Formeln in Code-Blöcken wenn nötig).

@@ -26,9 +26,9 @@ const ENV_KEYS = {
   FORMULA_AGENT_LLM: "FORMULA_AGENT_LLM",
   /** Clarification agent chat (streaming final answer). */
   CLARIFICATION_CHAT_LLM: "CLARIFICATION_CHAT_LLM",
-  /** Unified pipeline: planning coordinator (structured output; no tools). */
+  /** Graph agent: planning coordinator (structured output; no tools). */
   COORDINATOR_LLM: "COORDINATOR_LLM",
-  /** Unified pipeline: tool coordinator (binds tools including RAG retrieval tool). */
+  /** Graph agent: tool coordinator (binds tools including RAG retrieval tool). */
   TOOL_COORDINATOR_LLM: "TOOL_COORDINATOR_LLM",
   /** Embeddings (e.g. formula docs RAG). */
   EMBEDDINGS: "EMBEDDINGS",
@@ -70,9 +70,9 @@ export const LLMUseCases = {
   FORMULA_AGENT: "formula_agent",
   /** Clarification agent chat (streaming final answer). */
   CLARIFICATION_CHAT: "clarification_chat",
-  /** Unified pipeline: planning coordinator (structured output; no tools). */
+  /** Graph agent: planning coordinator (structured output; no tools). */
   COORDINATOR: "coordinator",
-  /** Unified pipeline: tool coordinator (binds tools). */
+  /** Graph agent: tool coordinator (binds tools). */
   TOOL_COORDINATOR: "tool_coordinator",
 } as const;
 

@@ -88,7 +88,7 @@ and the AI agent design.
 ### 3.4 Context & Tools (agentic)
 - [x] **Context**: current formula, fields, available functions (in
       prompt)
-- [x] **RAG over function descriptions**: agentic plan → retrieve (pgvector) → check → answer (with optional retry); embedded in graph mode via tools (imperative loops, not a LangGraph `StateGraph` shell)
+- [x] **RAG over function descriptions**: agentic plan → retrieve (pgvector) → check (embedded in graph mode via tools; inner loop is TypeScript; outer graph is `StateGraph` in `formula-graph-stategraph.ts`)
 - [x] **Context**: chat history (in-session) — passed to LLM/RAG
 - [ ] **Agent memory layers** — typical layers still missing:
   - [ ] Short-term/working: in-session messages ✅, but no
@@ -152,16 +152,15 @@ ambiguous or insufficient. LangChain **`createAgent`** (ReAct) with tools
 - Client renders a clarification question as an assistant message; the
   user replies and resubmits.
 
-### 3.7 Graph agent (unified pipeline)
+### 3.7 Graph agent (LangGraph `StateGraph`)
 
-**Unified** means one orchestrated flow: planning coordinator LLM (structured, no tools) + tool
-coordinator LLM (tools, including embedded RAG) + deterministic validate/evaluate + streamed polish
-(`formula-unified-agent-graph.ts`, public API via `formula-graph-agent.ts`). It does **not** mean the
-outer runtime is already a LangGraph **`StateGraph`** with explicit nodes and edges.
+Two-LLM pipeline: planning coordinator → tool coordinator (with embedded RAG tool) → deterministic
+validate/evaluate → streamed polish. Outer control flow is implemented as a compiled **`StateGraph`**
+in `formula-graph-stategraph.ts` (nodes and conditional edges). The tool coordinator still uses
+**`ToolNode`** for batched tool execution.
 
-- [x] Shipping implementation (TypeScript coordinator loops + **`ToolNode`** in `tool-coordinator-phase.ts`)
-- [ ] **Future:** migrate outer orchestration to LangGraph **`StateGraph`** (nodes, edges, conditional
-      routing) so the graph agent matches a graph-first design; keep streaming and HITL contracts.
+- [x] LangGraph **`StateGraph`** for outer orchestration (`formula-graph-stategraph.ts`)
+- [x] **`ToolNode`** inside `tool-coordinator-phase.ts`
 
 ---
 
@@ -175,7 +174,7 @@ on the same test set.
 - [x] **Direct: LangSmith monitoring** — direct chat now uses LangChain
       (`formula-direct-chat.ts`) like graph and free modes; all three
       agents are traced uniformly in LangSmith.
-- [x] **Target functions** — unified interface / adapter layer so eval
+- [x] **Target functions** — shared interface / adapter layer so eval
       scripts can call the three agents (direct, graph, free)
       as target functions (synchronous input/output, no streaming).
 - [x] **Single-run script** — manual testing: run a single request

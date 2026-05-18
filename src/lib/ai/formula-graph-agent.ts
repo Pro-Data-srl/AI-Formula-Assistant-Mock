@@ -1,37 +1,24 @@
 /**
- * Graph agent mode: thin wrapper around the unified coordinator + tool-coordinator pipeline
- * (embedded RAG retrieval as a tool).
+ * Graph agent mode: public entry for the LangGraph-based two-LLM pipeline (see {@link invokeGraphFormulaAgent}).
  *
- * **“Graph” vs LangGraph:** orchestration lives in `formula-unified-agent-graph.ts` (`runUnifiedFormulaAgent`).
- * There is **no** LangGraph `StateGraph` with declared nodes and edges for the outer flow — only
- * `ToolNode` inside `tool-coordinator-phase.ts`. See the **Unified** / **LangGraph `StateGraph`**
- * section in that module’s file-level doc.
- *
- * **Naming:** `GraphFormulaAgentStatus` matches `UnifiedFormulaAgentStatus` from the same pipeline.
- *
- * @see `formula-unified-agent-graph.ts` — main control flow
- * @see `tool-coordinator-phase.ts` — `ToolNode` + tool execution loop
+ * @see `formula-graph-stategraph.ts` — {@link StateGraph} nodes, conditional edges, and {@code compile}
  */
 
 import {
-  runUnifiedFormulaAgent,
-  type UnifiedFormulaAgentStatus,
-  type UnifiedChatMessage,
-} from "@/lib/ai/formula-unified-agent-graph";
+  invokeGraphFormulaAgent,
+  type GraphAgentChatMessage,
+  type GraphFormulaAgentStatus,
+  type GraphFormulaAgentResult,
+} from "@/lib/ai/formula-graph-stategraph";
 
-/** Same lifecycle phases as {@link UnifiedFormulaAgentStatus}; kept as a stable public name for graph mode. */
-export type GraphFormulaAgentStatus = UnifiedFormulaAgentStatus;
+export type { GraphFormulaAgentStatus, GraphFormulaAgentResult };
 
 export type GraphFormulaAgentInput = {
   messages: { role: string; content: string }[];
   currentFormula?: string;
 };
 
-export type ChatMessage = UnifiedChatMessage;
-
-export type GraphFormulaAgentResult =
-  | { type: "answer"; finalAnswer: string }
-  | { type: "clarification"; question: string };
+export type ChatMessage = GraphAgentChatMessage;
 
 export async function runGraphFormulaAgent(
   input: GraphFormulaAgentInput,
@@ -40,7 +27,7 @@ export async function runGraphFormulaAgent(
     onChunk?: (chunk: string) => void;
   } = {}
 ): Promise<GraphFormulaAgentResult> {
-  return runUnifiedFormulaAgent(
+  return invokeGraphFormulaAgent(
     { messages: input.messages ?? [], currentFormula: input.currentFormula },
     options
   );
