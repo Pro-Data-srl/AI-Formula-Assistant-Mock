@@ -78,11 +78,11 @@ export const LLMUseCases = {
 
 export type LLMUseCase = (typeof LLMUseCases)[keyof typeof LLMUseCases];
 
-/** Agent mode: direct (full context in prompt) vs RAG (LangGraph retrieve) vs clarification (agentic + askClarification). */
+/** Agent mode: direct (catalog in prompt) vs graph (coordinator + tools + RAG) vs free (ReAct agent). */
 export const AgentModes = {
   DIRECT: "direct",
-  RAG: "rag",
-  CLARIFICATION: "clarification",
+  GRAPH: "graph",
+  FREE: "free",
 } as const;
 
 export type AgentMode = (typeof AgentModes)[keyof typeof AgentModes];

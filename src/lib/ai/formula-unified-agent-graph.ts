@@ -32,7 +32,7 @@ import {
   getMockMemUserValues,
 } from "@/data/fields";
 
-/** Phases surfaced to the client for RAG and Clarification (unified pipeline). */
+/** Phases surfaced to the client for the graph agent (unified pipeline). */
 export type UnifiedFormulaAgentStatus =
   | "thinking"
   | "coordinating"
@@ -50,10 +50,6 @@ const CoordinatorDecision = z.discriminatedUnion("step", [
   z.object({
     step: z.literal("use_capabilities"),
     capability_brief: z.string().min(1),
-  }),
-  z.object({
-    step: z.literal("ask_user"),
-    user_question: z.string().min(1),
   }),
   z.object({
     step: z.literal("finalize"),
@@ -122,6 +118,7 @@ function mapToolCoordStatus(
     evaluating: "evaluating",
     validating: "validating",
     digesting: "digesting",
+    clarifying: "clarifying",
   };
   onStatus?.(map[s]);
 }
@@ -131,7 +128,7 @@ export type UnifiedFormulaAgentResult =
   | { type: "clarification"; question: string };
 
 /**
- * Runs the unified coordinator + tool-coordinator pipeline (RAG and Clarification API modes).
+ * Runs the unified coordinator + tool-coordinator pipeline (graph agent API mode).
  */
 export async function runUnifiedFormulaAgent(
   input: { messages: UnifiedChatMessage[]; currentFormula?: string },
@@ -176,18 +173,13 @@ export async function runUnifiedFormulaAgent(
       };
     }
 
-    if (decision.step === "ask_user") {
-      onStatus?.("clarifying");
-      return { type: "clarification", question: decision.user_question };
-    }
-
     if (decision.step === "use_capabilities") {
       thread.push(
         new AIMessage(
           `[Koordinator → Fähigkeiten] Ich benötige Unterstützung für: ${decision.capability_brief}`
         )
       );
-      const digest = await runToolCoordinatorPhase({
+      const toolPhase = await runToolCoordinatorPhase({
         capabilityBrief: decision.capability_brief,
         messages: input.messages ?? [],
         currentFormula,
@@ -195,9 +187,13 @@ export async function runUnifiedFormulaAgent(
           onStatus: (s) => mapToolCoordStatus(s, onStatus),
         },
       });
+      if (toolPhase.kind === "hitl") {
+        onStatus?.("clarifying");
+        return { type: "clarification", question: toolPhase.question };
+      }
       thread.push(
         new HumanMessage(
-          `## Aufbereitete Fähigkeitsergebnisse (nur Zusammenfassung; keine Roh-Logs)\n${digest}`
+          `## Aufbereitete Fähigkeitsergebnisse (nur Zusammenfassung; keine Roh-Logs)\n${toolPhase.text}`
         )
       );
       continue;

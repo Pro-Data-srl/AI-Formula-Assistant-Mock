@@ -12,7 +12,7 @@ import { runAgentAsTarget } from "./agent-targets";
 // ---------------------------------------------------------------------------
 // Config – edit these values for manual testing
 // ---------------------------------------------------------------------------
-const AGENT = AgentModes.CLARIFICATION;
+const AGENT = AgentModes.FREE;
 const QUERY = "Erkläre addDays";
 const FORMULA = "";
 

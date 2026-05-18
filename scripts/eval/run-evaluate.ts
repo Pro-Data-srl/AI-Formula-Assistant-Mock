@@ -7,7 +7,7 @@
  * Usage:
  *   npm run eval:run [-- --agent direct]     # single agent
  *   npm run eval:run [-- --agent all]        # all agents (default)
- *   npm run eval:run [-- --agent direct --agent rag]
+ *   npm run eval:run [-- --agent direct --agent graph]
  */
 import { config } from "dotenv";
 config();
@@ -82,16 +82,18 @@ function parseAgents(): AgentMode[] {
   const args = process.argv.slice(2);
   const agentIdx = args.indexOf("--agent");
   if (agentIdx === -1 || !args[agentIdx + 1]) {
-    return [AgentModes.DIRECT, AgentModes.RAG, AgentModes.CLARIFICATION];
+    return [AgentModes.DIRECT, AgentModes.GRAPH, AgentModes.FREE];
   }
   const val = args[agentIdx + 1];
   if (val === "all") {
-    return [AgentModes.DIRECT, AgentModes.RAG, AgentModes.CLARIFICATION];
+    return [AgentModes.DIRECT, AgentModes.GRAPH, AgentModes.FREE];
   }
-  if (val === "direct" || val === "rag" || val === "clarification") {
+  if (val === "direct" || val === "graph" || val === "free" || val === "rag" || val === "clarification") {
+    if (val === "rag") return [AgentModes.GRAPH];
+    if (val === "clarification") return [AgentModes.FREE];
     return [val as AgentMode];
   }
-  console.error(`Unknown agent: ${val}. Use direct, rag, clarification, or all.`);
+  console.error(`Unknown agent: ${val}. Use direct, graph, free, rag, clarification (legacy), or all.`);
   process.exit(1);
 }
 
@@ -108,7 +110,7 @@ async function main() {
   console.log(`Run: ${runDatetime}`);
   console.log(`Dataset: ${examples.length} examples (from ${DATASET_NAME})`);
   console.log(`Agents: ${agents.join(", ")}`);
-  console.log(`Experiment names: formelassistent-${runDatetime}-{direct|rag|clarification}`);
+  console.log(`Experiment names: formelassistent-${runDatetime}-{direct|graph|free}`);
 
   await runEvaluation(examples, agents, runDatetime);
 }

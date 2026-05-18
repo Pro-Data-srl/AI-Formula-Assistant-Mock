@@ -1,15 +1,12 @@
 /**
  * Unified interface for agent target functions (Eval-Scripts, LangSmith evaluate).
- * All three agents (direct, RAG, Clarification) can be invoked with the same input/output shape.
+ * All three agents (direct, graph, free) can be invoked with the same input/output shape.
  */
 
-import {
-  AgentModes,
-  type AgentMode,
-} from "@/lib/ai/llm-config";
+import { AgentModes, type AgentMode } from "@/lib/ai/llm-config";
 import { runDirectChat } from "@/lib/ai/formula-direct-chat";
-import { runFormulaRag } from "@/lib/ai/formula-rag-graph";
-import { runClarificationAgent } from "@/lib/ai/formula-clarification-graph";
+import { runGraphFormulaAgent } from "@/lib/ai/formula-graph-agent";
+import { runFreeFormulaAgent } from "@/lib/ai/formula-free-agent";
 
 /** Unified input for all agent target functions. */
 export type AgentTargetInput = {
@@ -33,11 +30,11 @@ export async function runDirectChatSync(
   return { answer: finalAnswer };
 }
 
-/** Run RAG agent as target (sync, no streaming callbacks). */
-export async function runRagAsTarget(
+/** Run graph agent as target (sync, no streaming callbacks). */
+export async function runGraphAsTarget(
   input: AgentTargetInput
 ): Promise<AgentTargetOutput> {
-  const result = await runFormulaRag({
+  const result = await runGraphFormulaAgent({
     messages: input.messages,
     currentFormula: input.formula ?? "",
   });
@@ -47,11 +44,11 @@ export async function runRagAsTarget(
   return { answer: result.finalAnswer };
 }
 
-/** Run Clarification agent as target (sync, no streaming callbacks). */
-export async function runClarificationAsTarget(
+/** Run free agent as target (sync, no streaming callbacks). */
+export async function runFreeAsTarget(
   input: AgentTargetInput
 ): Promise<AgentTargetOutput> {
-  const result = await runClarificationAgent({
+  const result = await runFreeFormulaAgent({
     messages: input.messages,
     currentFormula: input.formula ?? "",
   });
@@ -69,10 +66,10 @@ export async function runAgentAsTarget(
   switch (mode) {
     case AgentModes.DIRECT:
       return runDirectChatSync(input);
-    case AgentModes.RAG:
-      return runRagAsTarget(input);
-    case AgentModes.CLARIFICATION:
-      return runClarificationAsTarget(input);
+    case AgentModes.GRAPH:
+      return runGraphAsTarget(input);
+    case AgentModes.FREE:
+      return runFreeAsTarget(input);
     default:
       return runDirectChatSync(input);
   }

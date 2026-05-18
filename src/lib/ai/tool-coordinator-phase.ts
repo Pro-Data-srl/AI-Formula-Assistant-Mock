@@ -1,6 +1,6 @@
 /**
  * Tool-coordinator LLM: selects and runs tools (including RAG retrieval loop as one tool),
- * then returns a digest string for the planning coordinator (no raw tool dumps).
+ * then returns a digest for the planning coordinator, or a human-in-the-loop question from askClarification.
  *
  * @author Lukas Alber
  */
@@ -12,6 +12,7 @@ import {
   HumanMessage,
   SystemMessage,
   isAIMessage,
+  isToolMessage,
   type BaseMessage,
 } from "@langchain/core/messages";
 import type { BaseCallbackHandler } from "@langchain/core/callbacks/base";
@@ -19,7 +20,12 @@ import { z } from "zod";
 import { getLangChainChatModel, LLMUseCases } from "@/lib/ai/llm-config";
 import { langchainMessageContentToText } from "@/lib/ai/langchain-message-content";
 import { TOOL_COORDINATOR_SYSTEM, TOOL_DIGEST_SYSTEM } from "@/lib/ai/prompting/tool-coordinator";
-import { validateFormulaTool, evaluateFormulaTool } from "@/lib/ai/tools";
+import {
+  validateFormulaTool,
+  evaluateFormulaTool,
+  askClarificationTool,
+  ASK_CLARIFICATION_TOOL_NAME,
+} from "@/lib/ai/tools";
 import { runRagRetrievalOnly, type RagRetrievalChatMessage } from "@/lib/ai/rag-retrieval-only";
 import { LangChainToolStatusCallback } from "@/lib/ai/langchain-tool-status-callback";
 
@@ -29,16 +35,22 @@ export type ToolCoordinatorPhaseStatus =
   | "retrieving"
   | "evaluating"
   | "validating"
-  | "digesting";
+  | "digesting"
+  | "clarifying";
 
 export type ToolCoordinatorPhaseConfig = {
   onStatus?: (status: ToolCoordinatorPhaseStatus) => void;
 };
 
+export type ToolCoordinatorPhaseResult =
+  | { kind: "digest"; text: string }
+  | { kind: "hitl"; question: string };
+
 const TOOL_TO_STATUS: Record<string, ToolCoordinatorPhaseStatus> = {
   retrieveFormulaContext: "retrieving",
   validateFormula: "validating",
   evaluateFormula: "evaluating",
+  askClarification: "clarifying",
 };
 
 const MAX_AGENT_STEPS = 12;
@@ -108,14 +120,14 @@ async function runDigestPass(messages: BaseMessage[]): Promise<string> {
 }
 
 /**
- * Runs the tool-coordinator LLM loop and returns a digest for the planning coordinator.
+ * Runs the tool-coordinator LLM loop. Stops immediately when {@code askClarification} was executed (HITL).
  */
 export async function runToolCoordinatorPhase(input: {
   capabilityBrief: string;
   messages: RagRetrievalChatMessage[];
   currentFormula: string;
   options?: ToolCoordinatorPhaseConfig;
-}): Promise<string> {
+}): Promise<ToolCoordinatorPhaseResult> {
   const { capabilityBrief, messages, currentFormula, options } = input;
   const onStatus = options?.onStatus;
 
@@ -125,7 +137,7 @@ export async function runToolCoordinatorPhase(input: {
     onRagPhase: (phase) => onStatus?.(phase),
   });
 
-  const tools = [retrieveTool, validateFormulaTool, evaluateFormulaTool];
+  const tools = [retrieveTool, validateFormulaTool, evaluateFormulaTool, askClarificationTool];
   const toolNode = new ToolNode(tools);
   const modelWithTools = toolCoordinatorModel.bindTools!(tools);
 
@@ -146,15 +158,21 @@ export async function runToolCoordinatorPhase(input: {
     thread.push(ai);
     if (!isAIMessage(ai) || !ai.tool_calls?.length) {
       const direct = langchainMessageContentToText(ai.content).trim();
-      if (direct.length > 0) return direct;
+      if (direct.length > 0) return { kind: "digest", text: direct };
       onStatus?.("digesting");
-      return runDigestPass(thread);
+      return { kind: "digest", text: await runDigestPass(thread) };
     }
     const toolOut = await toolNode.invoke({ messages: [ai] });
     const extra = toolOut.messages ?? [];
     thread.push(...extra);
+    for (const tm of extra) {
+      if (isToolMessage(tm) && tm.name === ASK_CLARIFICATION_TOOL_NAME) {
+        const q = typeof tm.content === "string" ? tm.content : "";
+        return { kind: "hitl", question: q.trim() || "Könnten Sie bitte präzisieren?" };
+      }
+    }
   }
 
   onStatus?.("digesting");
-  return runDigestPass(thread);
+  return { kind: "digest", text: await runDigestPass(thread) };
 }

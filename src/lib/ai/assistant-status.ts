@@ -1,4 +1,4 @@
-/** Key for custom stream data part carrying assistant phase (RAG flow). */
+/** Key for custom stream data part carrying assistant phase (graph / free / direct). */
 export const ASSISTANT_STATUS_DATA_KEY = "assistant_status" as const;
 
 export type AssistantStatusPhase =
