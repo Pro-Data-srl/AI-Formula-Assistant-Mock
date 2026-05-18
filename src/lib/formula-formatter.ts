@@ -160,8 +160,7 @@ export function formatFormula(source: string): string {
           const needSpace =
             prev &&
             prev.type !== "lparen" &&
-            prev.type !== "comma" &&
-            token.type !== "rparen";
+            prev.type !== "comma";
           if (needSpace) emit(" ");
         }
         emit(text);

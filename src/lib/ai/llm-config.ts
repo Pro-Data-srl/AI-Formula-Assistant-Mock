@@ -26,6 +26,10 @@ const ENV_KEYS = {
   FORMULA_AGENT_LLM: "FORMULA_AGENT_LLM",
   /** Clarification agent chat (streaming final answer). */
   CLARIFICATION_CHAT_LLM: "CLARIFICATION_CHAT_LLM",
+  /** Graph agent: planning coordinator (structured output; no tools). */
+  COORDINATOR_LLM: "COORDINATOR_LLM",
+  /** Graph agent: tool coordinator (binds tools including RAG retrieval tool). */
+  TOOL_COORDINATOR_LLM: "TOOL_COORDINATOR_LLM",
   /** Embeddings (e.g. formula docs RAG). */
   EMBEDDINGS: "EMBEDDINGS",
   /** Conversation title generation (cheapest model). */
@@ -39,6 +43,9 @@ const DEFAULTS = {
   [ENV_KEYS.AGENTIC_RAG_LLM]: "anthropic:claude-haiku-4-5:none",
   [ENV_KEYS.FORMULA_AGENT_LLM]: "anthropic:claude-haiku-4-5:low",
   [ENV_KEYS.CLARIFICATION_CHAT_LLM]: "anthropic:claude-haiku-4-5:low",
+  /** Structured coordinator decisions; keep :none on Anthropic (extended thinking conflicts). */
+  [ENV_KEYS.COORDINATOR_LLM]: "anthropic:claude-haiku-4-5:none",
+  [ENV_KEYS.TOOL_COORDINATOR_LLM]: "anthropic:claude-haiku-4-5:low",
   [ENV_KEYS.EMBEDDINGS]: "openai:text-embedding-3-small",
   [ENV_KEYS.TITLE_LLM]: "anthropic:claude-haiku-4-5:low",
 } as const;
@@ -63,15 +70,19 @@ export const LLMUseCases = {
   FORMULA_AGENT: "formula_agent",
   /** Clarification agent chat (streaming final answer). */
   CLARIFICATION_CHAT: "clarification_chat",
+  /** Graph agent: planning coordinator (structured output; no tools). */
+  COORDINATOR: "coordinator",
+  /** Graph agent: tool coordinator (binds tools). */
+  TOOL_COORDINATOR: "tool_coordinator",
 } as const;
 
 export type LLMUseCase = (typeof LLMUseCases)[keyof typeof LLMUseCases];
 
-/** Agent mode: direct (full context in prompt) vs RAG (LangGraph retrieve) vs clarification (agentic + askClarification). */
+/** Agent mode: direct (catalog in prompt) vs graph (coordinator + tools + RAG) vs free (ReAct agent). */
 export const AgentModes = {
   DIRECT: "direct",
-  RAG: "rag",
-  CLARIFICATION: "clarification",
+  GRAPH: "graph",
+  FREE: "free",
 } as const;
 
 export type AgentMode = (typeof AgentModes)[keyof typeof AgentModes];
@@ -102,6 +113,8 @@ const USE_CASE_TO_ENV: Record<LLMUseCase, keyof typeof ENV_KEYS> = {
   agentic_rag: ENV_KEYS.AGENTIC_RAG_LLM,
   formula_agent: ENV_KEYS.FORMULA_AGENT_LLM,
   clarification_chat: ENV_KEYS.CLARIFICATION_CHAT_LLM,
+  coordinator: ENV_KEYS.COORDINATOR_LLM,
+  tool_coordinator: ENV_KEYS.TOOL_COORDINATOR_LLM,
 };
 
 /** Parse provider:model[:reasoning|temperature]. Third part: either reasoning (none|low|medium|high) or temperature (0–2). */

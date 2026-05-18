@@ -41,8 +41,8 @@ yourself.
 - Validation: syntax, unknown functions/fields, arity
 - AI assistant with three agent modes:
   - **direct** – full function/field catalog in the system prompt
-  - **rag** – LangGraph plan → retrieve (pgvector) → check → answer
-  - **clarification** – agentic loop with tools and human-in-the-loop
+  - **graph** – coordinator + tool layer (embedded RAG retrieval tool, validate/evaluate, **askClarification**), review gate, streamed polish
+  - **free** – LangChain `createAgent` ReAct loop with full tool set (`retrieveDocs`, validate, evaluate, **askClarification**) and polish
     follow-up questions
 - Conversation history persisted in Postgres (Drizzle ORM)
 - Optional LangSmith tracing and an evaluation harness
@@ -55,7 +55,7 @@ yourself.
 | Language         | TypeScript                                                    |
 | UI               | React 19, shadcn/ui, Tailwind CSS v4                          |
 | AI (chat)        | Vercel AI SDK (`ai` + `@ai-sdk/react`)                        |
-| AI (graphs/RAG)  | LangChain.js + LangGraph                                      |
+| AI (graph mode)  | LangChain.js + LangGraph `StateGraph` + `ToolNode` (see `docs/agent-modules.md`) |
 | LLM providers    | OpenAI and Anthropic (provider-agnostic config)               |
 | Database         | Postgres 16 + pgvector (via Docker Compose)                   |
 | ORM / migrations | Drizzle ORM + `drizzle-kit`                                   |
@@ -105,7 +105,7 @@ See `.env.example` and `docs/ai-stack.md` for all options.
 
 ### 5. (Optional) Seed RAG documents
 
-Only required if you want to run the `rag` or `clarification` agent
+Only required if you want to run the `graph` or `free` agent
 modes:
 
 ```bash

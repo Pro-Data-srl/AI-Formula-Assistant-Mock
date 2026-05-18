@@ -22,8 +22,8 @@ import { AgentModes, type AgentMode } from "@/lib/ai/llm-config";
 
 const AGENT_MODE_LABELS: Record<AgentMode, string> = {
   [AgentModes.DIRECT]: "Direct",
-  [AgentModes.RAG]: "Agentic RAG",
-  [AgentModes.CLARIFICATION]: "Clarification",
+  [AgentModes.GRAPH]: "Graph agent",
+  [AgentModes.FREE]: "Free agent",
 };
 import {
   Select,
@@ -52,12 +52,14 @@ function getCodeBlocksFromMessage(content: string): string[] {
 
 const VALID_STATUS_PHASES = new Set<AssistantStatusPhase>([
   "thinking",
+  "coordinating",
   "planning",
   "retrieving",
   "evaluating",
   "answering",
   "validating",
   "clarifying",
+  "digesting",
 ]);
 
 function parseStatusFromDataPart(line: string): AssistantStatusPhase | null {
@@ -304,8 +306,8 @@ export function AssistantChat() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={AgentModes.DIRECT}>Direct</SelectItem>
-              <SelectItem value={AgentModes.RAG}>Agentic RAG</SelectItem>
-              <SelectItem value={AgentModes.CLARIFICATION}>Clarification</SelectItem>
+              <SelectItem value={AgentModes.GRAPH}>Graph agent</SelectItem>
+              <SelectItem value={AgentModes.FREE}>Free agent</SelectItem>
             </SelectContent>
           </Select>
           <Dialog open={historyOpen} onOpenChange={setHistoryOpen}>

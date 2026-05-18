@@ -1,11 +1,8 @@
 import { createDataStreamResponse, formatDataStreamPart } from "ai";
 import { AgentModes } from "@/lib/ai/llm-config";
 import { runDirectChat } from "@/lib/ai/formula-direct-chat";
-import { runFormulaRag, type FormulaRagStatus } from "@/lib/ai/formula-rag-graph";
-import {
-  runClarificationAgent,
-  type ClarificationAgentStatus,
-} from "@/lib/ai/formula-clarification-graph";
+import { runGraphFormulaAgent, type GraphFormulaAgentStatus } from "@/lib/ai/formula-graph-agent";
+import { runFreeFormulaAgent, type FreeFormulaAgentStatus } from "@/lib/ai/formula-free-agent";
 import { ASSISTANT_STATUS_DATA_KEY } from "@/lib/ai/assistant-status";
 import { CLARIFICATION_DATA_KEY } from "@/lib/ai/clarification-response";
 import {
@@ -17,6 +14,13 @@ import {
 export const maxDuration = 30;
 
 const DEFAULT_FORMULA_SOURCE = (process.env.FORMULA_SOURCE ?? AgentModes.DIRECT) as string;
+
+/** Accepts legacy env values {@code rag} / {@code clarification} from older configs. */
+function normalizeAgentMode(mode: string): string {
+  if (mode === "rag") return AgentModes.GRAPH;
+  if (mode === "clarification") return AgentModes.FREE;
+  return mode;
+}
 
 export async function POST(req: Request) {
   const { messages, formula, formulaSource, conversationId } = (await req.json()) as {
@@ -33,13 +37,13 @@ export async function POST(req: Request) {
   const convId = conversationId ?? crypto.randomUUID();
   await ensureConversation(convId);
 
-  const mode = formulaSource ?? DEFAULT_FORMULA_SOURCE;
+  const mode = normalizeAgentMode(formulaSource ?? DEFAULT_FORMULA_SOURCE);
 
   switch (mode) {
-    case AgentModes.RAG:
-      return handleRagChat(messages, formula ?? "", convId);
-    case AgentModes.CLARIFICATION:
-      return handleClarificationChat(messages, formula ?? "", convId);
+    case AgentModes.GRAPH:
+      return handleGraphChat(messages, formula ?? "", convId);
+    case AgentModes.FREE:
+      return handleFreeChat(messages, formula ?? "", convId);
     default:
       return handleDirectChat(messages, formula, convId);
   }
@@ -88,30 +92,37 @@ async function handleDirectChat(
   });
 }
 
-async function handleRagChat(
+async function handleGraphChat(
   messages: { role: string; content: string }[],
   currentFormula: string,
   conversationId: string
 ) {
   return createDataStreamResponse({
     execute: async (writer) => {
-      const onStatus = (status: FormulaRagStatus) => {
+      const onStatus = (status: GraphFormulaAgentStatus) => {
         writer.writeData({ [ASSISTANT_STATUS_DATA_KEY]: status });
       };
       const onChunk = (chunk: string) => {
         writer.write(formatDataStreamPart("text", chunk));
       };
 
-      const { finalAnswer } = await runFormulaRag(
-        { messages, currentFormula },
-        { onStatus, onChunk }
-      );
+      const result = await runGraphFormulaAgent({ messages, currentFormula }, { onStatus, onChunk });
 
-      const fullMessages = [
-        ...messages.map((m) => ({ role: m.role, content: m.content })),
-        { role: "assistant" as const, content: finalAnswer },
-      ];
-      await saveMessages(conversationId, fullMessages);
+      if (result.type === "clarification") {
+        writer.writeData({ [CLARIFICATION_DATA_KEY]: { question: result.question } });
+        writer.write(formatDataStreamPart("text", result.question));
+        const fullMessages = [
+          ...messages.map((m) => ({ role: m.role, content: m.content })),
+          { role: "assistant" as const, content: result.question },
+        ];
+        await saveMessages(conversationId, fullMessages);
+      } else {
+        const fullMessages = [
+          ...messages.map((m) => ({ role: m.role, content: m.content })),
+          { role: "assistant" as const, content: result.finalAnswer },
+        ];
+        await saveMessages(conversationId, fullMessages);
+      }
       const firstUser = messages.find((m) => m.role === "user");
       if (firstUser) {
         generateAndUpdateTitle(conversationId, firstUser.content).catch(() => {});
@@ -125,30 +136,27 @@ async function handleRagChat(
       );
     },
     onError: (error) => {
-      console.error("[chat/rag]", error);
+      console.error("[chat/graph]", error);
       return String(error instanceof Error ? error.message : error);
     },
   });
 }
 
-async function handleClarificationChat(
+async function handleFreeChat(
   messages: { role: string; content: string }[],
   currentFormula: string,
   conversationId: string
 ) {
   return createDataStreamResponse({
     execute: async (writer) => {
-      const onStatus = (status: ClarificationAgentStatus) => {
+      const onStatus = (status: FreeFormulaAgentStatus) => {
         writer.writeData({ [ASSISTANT_STATUS_DATA_KEY]: status });
       };
       const onChunk = (chunk: string) => {
         writer.write(formatDataStreamPart("text", chunk));
       };
 
-      const result = await runClarificationAgent(
-        { messages, currentFormula },
-        { onStatus, onChunk }
-      );
+      const result = await runFreeFormulaAgent({ messages, currentFormula }, { onStatus, onChunk });
 
       if (result.type === "clarification") {
         writer.writeData({ [CLARIFICATION_DATA_KEY]: { question: result.question } });
@@ -174,7 +182,7 @@ async function handleClarificationChat(
       );
     },
     onError: (error) => {
-      console.error("[chat/clarification]", error);
+      console.error("[chat/free]", error);
       return String(error instanceof Error ? error.message : error);
     },
   });
