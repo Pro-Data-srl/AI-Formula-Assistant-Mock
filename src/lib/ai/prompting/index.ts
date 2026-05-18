@@ -9,3 +9,4 @@ export {
 } from "./rag-answer";
 export { buildClarificationAgentSystemPrompt } from "./clarification-agent";
 export { buildClarificationAnswerSystemPrompt } from "./clarification-answer";
+export { buildRagToolAgentSystemPrompt } from "./rag-tool-agent";

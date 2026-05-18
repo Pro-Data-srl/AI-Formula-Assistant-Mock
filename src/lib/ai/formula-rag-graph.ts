@@ -1,22 +1,19 @@
 import { Annotation, END, START, StateGraph } from "@langchain/langgraph";
-import { AIMessage, HumanMessage, SystemMessage } from "@langchain/core/messages";
+import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { z } from "zod";
 import {
-  getLangChainChatModel,
   getLangChainChatModelForStructuredOutput,
   LLMUseCases,
 } from "@/lib/ai/llm-config";
-import { langchainMessageContentToText } from "@/lib/ai/langchain-message-content";
 import {
   RAG_PLAN_SYSTEM,
   RAG_CHECK_SYSTEM,
   buildRagPlanUserMessage,
   buildRagCheckUserMessage,
-  buildRagAnswerSystemPrompt,
 } from "@/lib/ai/prompting";
 import type { RetrievedFormulaDoc } from "@/lib/rag/retriever";
 import { retrieveFormulaDocsForQueries } from "@/lib/rag/retriever";
-import { MOCK_FIELDS } from "@/data/fields";
+import { runRagPostToolPhase, type RagPostToolPhaseStatus } from "@/lib/ai/rag-post-tool-phase";
 
 /** Structured output from the plan step: chain-of-thought + search queries. Only queries are used downstream for now; reasoning is for future eval. */
 const PlanOutputSchema = z.object({
@@ -43,17 +40,19 @@ const CheckOutputSchema = z.object({
     .describe("true wenn die abgerufene Doku ausreicht um die Nutzerfrage zu beantworten, sonst false"),
 });
 
-/** Status strings sent to the client during RAG flow. */
+/** Status strings sent to the client during RAG flow (retrieval loop + post-retrieval tools). */
 export type FormulaRagStatus =
   | "thinking"
   | "planning"
   | "retrieving"
   | "evaluating"
+  | "validating"
+  | "clarifying"
   | "answering";
 
 export type FormulaRagConfig = {
   onStatus?: (status: FormulaRagStatus) => void;
-  /** Called with each streamed text chunk from the answer node. */
+  /** Streamed text from the post-retrieval polish step (after tools). */
   onChunk?: (chunk: string) => void;
 };
 
@@ -94,14 +93,17 @@ const FormulaRagState = Annotation.Root({
     reducer: (_, next) => next ?? "",
     default: () => "",
   }),
+  /** Set when askClarification ends the post-retrieval tool phase (same contract as Clarification mode). */
+  clarificationQuestion: Annotation<string>({
+    reducer: (_, next) => next ?? "",
+    default: () => "",
+  }),
 });
 
 type State = typeof FormulaRagState.State;
 
 /** Plan/check only: structured JSON; Anthropic thinking forced off (see llm-config). */
 const planCheckModel = getLangChainChatModelForStructuredOutput(LLMUseCases.AGENTIC_RAG);
-/** Answer node streams markdown. */
-const answerModel = getLangChainChatModel(LLMUseCases.AGENTIC_CHAT);
 
 const planModel = planCheckModel.withStructuredOutput(PlanOutputSchema);
 const checkModel = planCheckModel.withStructuredOutput(CheckOutputSchema);
@@ -114,13 +116,12 @@ function getOnChunk(config: { configurable?: FormulaRagConfig }): FormulaRagConf
   return config?.configurable?.onChunk;
 }
 
-function toLangChainMessages(msgs: ChatMessage[]) {
-  return msgs.map((m) => {
-    const content = String(m.content ?? "");
-    if (m.role === "assistant") return new AIMessage(content);
-    if (m.role === "system") return new SystemMessage(content);
-    return new HumanMessage(content);
-  });
+/** Forwards post-retrieval tool phase statuses to the RAG stream (subset of {@link FormulaRagStatus}). */
+function mapPostToolStatus(
+  phase: RagPostToolPhaseStatus,
+  onStatus?: (status: FormulaRagStatus) => void
+) {
+  onStatus?.(phase as FormulaRagStatus);
 }
 
 function formatChatHistoryForContext(msgs: ChatMessage[]): string {
@@ -197,32 +198,29 @@ async function checkNode(state: State, config: { configurable?: FormulaRagConfig
   };
 }
 
-async function answerNode(state: State, config: { configurable?: FormulaRagConfig }): Promise<Partial<State>> {
+async function postRetrievalToolPhaseNode(
+  state: State,
+  config: { configurable?: FormulaRagConfig }
+): Promise<Partial<State>> {
   const onStatus = getOnStatus(config);
   const onChunk = getOnChunk(config);
-  onStatus?.("answering");
 
-  const systemPrompt = buildRagAnswerSystemPrompt({
-    retrievedDocs: state.retrievedDocs ?? [],
-    fields: MOCK_FIELDS,
-    currentFormula: state.currentFormula || undefined,
-  });
-
-  const historyMessages = toLangChainMessages(state.messages ?? []);
-  const answerMessages = [
-    new SystemMessage(systemPrompt),
-    ...historyMessages,
-  ];
-  let finalAnswer = "";
-  const stream = await answerModel.stream(answerMessages);
-  for await (const chunk of stream) {
-    const text = langchainMessageContentToText(chunk.content);
-    if (text) {
-      finalAnswer += text;
-      onChunk?.(text);
+  const result = await runRagPostToolPhase(
+    {
+      messages: state.messages ?? [],
+      retrievedDocs: state.retrievedDocs ?? [],
+      currentFormula: state.currentFormula ?? "",
+    },
+    {
+      onStatus: (phase) => mapPostToolStatus(phase, onStatus),
+      onChunk,
     }
+  );
+
+  if (result.type === "clarification") {
+    return { clarificationQuestion: result.question, finalAnswer: "" };
   }
-  return { finalAnswer };
+  return { clarificationQuestion: "", finalAnswer: result.finalAnswer };
 }
 
 function routeAfterCheck(state: State): "plan" | "answer" {
@@ -235,7 +233,7 @@ const graphBuilder = new StateGraph(FormulaRagState)
   .addNode("plan", planNode)
   .addNode("retrieve", retrieveNode)
   .addNode("check", checkNode)
-  .addNode("answer", answerNode)
+  .addNode("answer", postRetrievalToolPhaseNode)
   .addEdge(START, "plan")
   .addEdge("plan", "retrieve")
   .addEdge("retrieve", "check")
@@ -256,10 +254,14 @@ function getLastUserMessage(messages: ChatMessage[]): string {
   return "";
 }
 
+export type FormulaRagResult =
+  | { type: "answer"; finalAnswer: string; state: State }
+  | { type: "clarification"; question: string; state: State };
+
 export async function runFormulaRag(
   input: FormulaRagInput,
   options: { onStatus?: (status: FormulaRagStatus) => void; onChunk?: (chunk: string) => void } = {}
-): Promise<{ finalAnswer: string; state: State }> {
+): Promise<FormulaRagResult> {
   options.onStatus?.("thinking");
   const configurable: FormulaRagConfig = {};
   if (options.onStatus) configurable.onStatus = options.onStatus;
@@ -277,10 +279,17 @@ export async function runFormulaRag(
     finalAnswer: "",
     retrievalRound: 0,
     checkFeedback: "",
+    clarificationQuestion: "",
   };
   const finalState = await formulaRagGraph.invoke(initialState, config);
+  const st = finalState as State;
+  const clarificationQuestion = st.clarificationQuestion ?? "";
+  if (clarificationQuestion) {
+    return { type: "clarification", question: clarificationQuestion, state: st };
+  }
   return {
-    finalAnswer: (finalState as State).finalAnswer ?? "",
-    state: finalState as State,
+    type: "answer",
+    finalAnswer: st.finalAnswer ?? "",
+    state: st,
   };
 }

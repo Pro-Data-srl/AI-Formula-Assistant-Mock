@@ -1,7 +1,9 @@
 /**
- * Formula agent with tools + Clarification (human-in-the-loop).
- * Tools: retrieveDocs, validateFormula, evaluateFormula, askClarification.
- * Clarification tool: askClarification — when called, returns question to user and ends turn.
+ * Post-retrieval tool loop for the RAG agent: validate / evaluate / askClarification.
+ * Uses the same LangGraph pattern as the clarification agent but omits {@code retrieveDocs}
+ * (documentation is already injected via {@link buildRagToolAgentSystemPrompt}).
+ *
+ * @author Lukas Alber
  */
 
 import {
@@ -21,88 +23,96 @@ import {
 } from "@langchain/core/messages";
 import type { BaseCallbackHandler } from "@langchain/core/callbacks/base";
 import { getLangChainChatModel, LLMUseCases } from "@/lib/ai/llm-config";
-import { LangChainToolStatusCallback } from "@/lib/ai/langchain-tool-status-callback";
 import { langchainMessageContentToText } from "@/lib/ai/langchain-message-content";
-import {
-  buildClarificationAgentSystemPrompt,
-  buildClarificationAnswerSystemPrompt,
-} from "@/lib/ai/prompting";
+import { buildRagToolAgentSystemPrompt } from "@/lib/ai/prompting/rag-tool-agent";
+import { buildClarificationAnswerSystemPrompt } from "@/lib/ai/prompting/clarification-answer";
 import { MOCK_FIELDS } from "@/data/fields";
-import { AGENT_TOOLS, ASK_CLARIFICATION_TOOL_NAME } from "@/lib/ai/tools";
+import type { RetrievedFormulaDoc } from "@/lib/rag/retriever";
+import { RAG_POST_RETRIEVAL_TOOLS, ASK_CLARIFICATION_TOOL_NAME } from "@/lib/ai/tools";
+import { LangChainToolStatusCallback } from "@/lib/ai/langchain-tool-status-callback";
+import type { RagAnswerDoc } from "@/lib/ai/prompting/rag-answer";
 
-/** Status strings sent to the client during clarification agent flow. */
-export type ClarificationAgentStatus =
+export type RagPostToolPhaseStatus =
   | "thinking"
   | "answering"
-  | "retrieving"
   | "validating"
   | "evaluating"
   | "clarifying";
 
-export type ClarificationAgentConfig = {
-  onStatus?: (status: ClarificationAgentStatus) => void;
+export type RagPostToolPhaseConfig = {
+  onStatus?: (status: RagPostToolPhaseStatus) => void;
   onChunk?: (chunk: string) => void;
 };
 
-export type ChatMessage = { role: string; content: string };
+export type RagPostToolChatMessage = { role: string; content: string };
 
-const ClarificationAgentState = Annotation.Root({
+const RagPostToolState = Annotation.Root({
   messages: Annotation({
     reducer: messagesStateReducer,
+    default: () => [],
+  }),
+  retrievedDocs: Annotation<RetrievedFormulaDoc[]>({
+    reducer: (_, next) => next ?? [],
     default: () => [],
   }),
   currentFormula: Annotation<string>({
     reducer: (_, next) => next ?? "",
     default: () => "",
   }),
-  /** Set when Clarification tool was called; returned to API for client display. */
   clarificationQuestion: Annotation<string>({
     reducer: (_, next) => next ?? "",
     default: () => "",
   }),
-  /** Streamed markdown answer from answer node (when agent produced valid answer). */
   finalAnswer: Annotation<string>({
     reducer: (_, next) => next ?? "",
     default: () => "",
   }),
 });
 
-type State = typeof ClarificationAgentState.State;
+type State = typeof RagPostToolState.State;
 
 function getOnStatus(config: {
-  configurable?: ClarificationAgentConfig;
-}): ClarificationAgentConfig["onStatus"] {
+  configurable?: RagPostToolPhaseConfig;
+}): RagPostToolPhaseConfig["onStatus"] {
   return config?.configurable?.onStatus;
 }
 
 function getOnChunk(config: {
-  configurable?: ClarificationAgentConfig;
-}): ClarificationAgentConfig["onChunk"] {
+  configurable?: RagPostToolPhaseConfig;
+}): RagPostToolPhaseConfig["onChunk"] {
   return config?.configurable?.onChunk;
 }
 
+function retrievedDocsToRagAnswerDocs(docs: RetrievedFormulaDoc[]): RagAnswerDoc[] {
+  return docs.map((d) => ({
+    name: d.name,
+    signature: d.signature,
+    content: d.content,
+    example: d.example,
+  }));
+}
+
 const agentModel = getLangChainChatModel(LLMUseCases.FORMULA_AGENT);
-const agentModelWithTools = agentModel.bindTools!(AGENT_TOOLS);
+const agentModelWithTools = agentModel.bindTools!(RAG_POST_RETRIEVAL_TOOLS);
 const answerModel = getLangChainChatModel(LLMUseCases.CLARIFICATION_CHAT);
 
-/** Map tool names to status strings for client display. */
-const TOOL_TO_STATUS: Record<string, ClarificationAgentStatus> = {
-  retrieveDocs: "retrieving",
+const TOOL_TO_STATUS: Record<string, RagPostToolPhaseStatus> = {
   validateFormula: "validating",
   evaluateFormula: "evaluating",
   askClarification: "clarifying",
 };
 
-const toolNode = new ToolNode(AGENT_TOOLS);
+const toolNode = new ToolNode(RAG_POST_RETRIEVAL_TOOLS);
 
 async function agentNode(
   state: State,
-  config: { configurable?: ClarificationAgentConfig }
+  config: { configurable?: RagPostToolPhaseConfig }
 ): Promise<Partial<State>> {
   const onStatus = getOnStatus(config);
   onStatus?.("thinking");
 
-  const systemPrompt = buildClarificationAgentSystemPrompt({
+  const systemPrompt = buildRagToolAgentSystemPrompt({
+    retrievedDocs: retrievedDocsToRagAnswerDocs(state.retrievedDocs ?? []),
     fields: MOCK_FIELDS.map((f) => ({ name: f.name, internalName: f.internalName })),
     currentFormula: state.currentFormula || undefined,
   });
@@ -114,7 +124,6 @@ async function agentNode(
   return { messages: [response] };
 }
 
-/** Route after agent: tools if tool_calls, else answer node (valid final answer). */
 function routeAfterAgent(state: State): "tools" | "answer" {
   const last = state.messages?.[state.messages.length - 1];
   if (last && "tool_calls" in last && Array.isArray(last.tool_calls) && last.tool_calls.length > 0) {
@@ -125,7 +134,7 @@ function routeAfterAgent(state: State): "tools" | "answer" {
 
 async function answerNode(
   state: State,
-  config: { configurable?: ClarificationAgentConfig }
+  config: { configurable?: RagPostToolPhaseConfig }
 ): Promise<Partial<State>> {
   const onStatus = getOnStatus(config);
   const onChunk = getOnChunk(config);
@@ -140,10 +149,7 @@ async function answerNode(
   );
 
   let finalAnswer = "";
-  const stream = await answerModel.stream(
-    [new SystemMessage(systemPrompt), userMessage],
-    config
-  );
+  const stream = await answerModel.stream([new SystemMessage(systemPrompt), userMessage], config);
   for await (const chunk of stream) {
     const text = langchainMessageContentToText(chunk.content);
     if (text) {
@@ -154,7 +160,6 @@ async function answerNode(
   return { finalAnswer };
 }
 
-/** Route after tools: clarification if Clarification tool was called, else back to agent. */
 function routeAfterTools(state: State): "clarification" | "agent" {
   const messages = state.messages ?? [];
   const lastAi = [...messages].reverse().find((msg) => isAIMessage(msg));
@@ -177,7 +182,7 @@ async function clarificationNode(state: State): Promise<Partial<State>> {
   return { clarificationQuestion: question };
 }
 
-const graphBuilder = new StateGraph(ClarificationAgentState)
+const graphBuilder = new StateGraph(RagPostToolState)
   .addNode("agent", agentNode)
   .addNode("tools", toolNode)
   .addNode("clarification", clarificationNode)
@@ -188,14 +193,19 @@ const graphBuilder = new StateGraph(ClarificationAgentState)
   .addEdge("clarification", END)
   .addEdge("answer", END);
 
-export const formulaClarificationGraph = graphBuilder.compile();
+export const ragPostToolPhaseGraph = graphBuilder.compile();
 
-export type ClarificationAgentInput = {
-  messages: { role: string; content: string }[];
-  currentFormula?: string;
+export type RagPostToolPhaseInput = {
+  messages: RagPostToolChatMessage[];
+  retrievedDocs: RetrievedFormulaDoc[];
+  currentFormula: string;
 };
 
-function toBaseMessages(msgs: ChatMessage[]) {
+export type RagPostToolPhaseResult =
+  | { type: "answer"; finalAnswer: string }
+  | { type: "clarification"; question: string };
+
+function toBaseMessages(msgs: RagPostToolChatMessage[]) {
   return msgs.map((m) => {
     const content = String(m.content ?? "");
     if (m.role === "assistant") return new AIMessage(content);
@@ -204,41 +214,39 @@ function toBaseMessages(msgs: ChatMessage[]) {
   });
 }
 
-export type ClarificationAgentResult =
-  | { type: "answer"; finalAnswer: string }
-  | { type: "clarification"; question: string };
-
-export async function runClarificationAgent(
-  input: ClarificationAgentInput,
-  options: {
-    onStatus?: (status: ClarificationAgentStatus) => void;
-    onChunk?: (chunk: string) => void;
-  } = {}
-): Promise<ClarificationAgentResult> {
+/**
+ * Runs validate/evaluate/askClarification after RAG retrieval, then polishes the assistant reply.
+ */
+export async function runRagPostToolPhase(
+  input: RagPostToolPhaseInput,
+  options: RagPostToolPhaseConfig = {}
+): Promise<RagPostToolPhaseResult> {
   options.onStatus?.("thinking");
-  const configurable: ClarificationAgentConfig = {};
+
+  const configurable: RagPostToolPhaseConfig = {};
   if (options.onStatus) configurable.onStatus = options.onStatus;
   if (options.onChunk) configurable.onChunk = options.onChunk;
 
   const messages = toBaseMessages(input.messages ?? []);
   const initialState: Partial<State> = {
     messages,
+    retrievedDocs: input.retrievedDocs,
     currentFormula: input.currentFormula ?? "",
     clarificationQuestion: "",
     finalAnswer: "",
   };
 
-  const config: { configurable?: ClarificationAgentConfig; callbacks?: BaseCallbackHandler[] } = {};
-  if (Object.keys(configurable).length > 0) config.configurable = configurable;
+  const config: {
+    configurable?: RagPostToolPhaseConfig;
+    callbacks?: BaseCallbackHandler[];
+  } = { configurable };
   if (options.onStatus) {
     config.callbacks = [
-      new LangChainToolStatusCallback<ClarificationAgentStatus>(options.onStatus, TOOL_TO_STATUS),
+      new LangChainToolStatusCallback<RagPostToolPhaseStatus>(options.onStatus, TOOL_TO_STATUS),
     ];
   }
-  const finalState = await formulaClarificationGraph.invoke(
-    initialState,
-    Object.keys(config).length > 0 ? config : undefined
-  );
+
+  const finalState = await ragPostToolPhaseGraph.invoke(initialState, config);
 
   const clarificationQuestion = (finalState as State).clarificationQuestion ?? "";
   if (clarificationQuestion) {

@@ -1,6 +1,7 @@
 /**
- * LangChain tools for the formula agent.
- * askClarification is the Clarification tool (human-in-the-loop); the rest are formula tools.
+ * LangChain tools for formula agents.
+ * - {@link RAG_POST_RETRIEVAL_TOOLS}: used by the RAG LangGraph after the retrieve step (no second retrieve).
+ * - {@link AGENT_TOOLS}: full set for the Clarification LangGraph (includes {@code retrieveDocs}).
  */
 
 import { tool } from "@langchain/core/tools";
@@ -106,6 +107,16 @@ export const askClarificationTool = tool(
     }),
   }
 );
+
+/**
+ * Tools used after the RAG graph has already retrieved documentation.
+ * Excludes {@link retrieveDocsTool} — the plan/retrieve/check loop supplies context.
+ */
+export const RAG_POST_RETRIEVAL_TOOLS = [
+  validateFormulaTool,
+  evaluateFormulaTool,
+  askClarificationTool,
+];
 
 /** All agent tools: formula tools + Clarification tool. */
 export const AGENT_TOOLS = [

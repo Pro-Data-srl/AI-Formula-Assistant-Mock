@@ -41,7 +41,7 @@ yourself.
 - Validation: syntax, unknown functions/fields, arity
 - AI assistant with three agent modes:
   - **direct** – full function/field catalog in the system prompt
-  - **rag** – LangGraph plan → retrieve (pgvector) → check → answer
+  - **rag** – LangGraph plan → retrieve (pgvector) → check → **tool phase** (validate / evaluate / optional askClarification) → polished answer
   - **clarification** – agentic loop with tools and human-in-the-loop
     follow-up questions
 - Conversation history persisted in Postgres (Drizzle ORM)

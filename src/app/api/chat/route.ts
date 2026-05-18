@@ -102,16 +102,26 @@ async function handleRagChat(
         writer.write(formatDataStreamPart("text", chunk));
       };
 
-      const { finalAnswer } = await runFormulaRag(
+      const result = await runFormulaRag(
         { messages, currentFormula },
         { onStatus, onChunk }
       );
 
-      const fullMessages = [
-        ...messages.map((m) => ({ role: m.role, content: m.content })),
-        { role: "assistant" as const, content: finalAnswer },
-      ];
-      await saveMessages(conversationId, fullMessages);
+      if (result.type === "clarification") {
+        writer.writeData({ [CLARIFICATION_DATA_KEY]: { question: result.question } });
+        writer.write(formatDataStreamPart("text", result.question));
+        const fullMessages = [
+          ...messages.map((m) => ({ role: m.role, content: m.content })),
+          { role: "assistant" as const, content: result.question },
+        ];
+        await saveMessages(conversationId, fullMessages);
+      } else {
+        const fullMessages = [
+          ...messages.map((m) => ({ role: m.role, content: m.content })),
+          { role: "assistant" as const, content: result.finalAnswer },
+        ];
+        await saveMessages(conversationId, fullMessages);
+      }
       const firstUser = messages.find((m) => m.role === "user");
       if (firstUser) {
         generateAndUpdateTitle(conversationId, firstUser.content).catch(() => {});

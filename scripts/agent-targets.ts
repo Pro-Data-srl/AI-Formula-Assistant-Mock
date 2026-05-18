@@ -37,11 +37,14 @@ export async function runDirectChatSync(
 export async function runRagAsTarget(
   input: AgentTargetInput
 ): Promise<AgentTargetOutput> {
-  const { finalAnswer } = await runFormulaRag({
+  const result = await runFormulaRag({
     messages: input.messages,
     currentFormula: input.formula ?? "",
   });
-  return { answer: finalAnswer };
+  if (result.type === "clarification") {
+    return { answer: result.question };
+  }
+  return { answer: result.finalAnswer };
 }
 
 /** Run Clarification agent as target (sync, no streaming callbacks). */

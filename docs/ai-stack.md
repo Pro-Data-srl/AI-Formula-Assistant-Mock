@@ -58,7 +58,8 @@ The `ai/react` export is deprecated. Use `@ai-sdk/react` for `useChat`, `useComp
 |----------|---------|---------|
 | Chat UI (streaming, client) | `@ai-sdk/react` | `useChat` in AssistantChat |
 | Direct chat API (LangChain) | `@langchain/*` | `formula-direct-chat.ts`; same streaming pattern as RAG |
-| RAG graph (LangGraph) | `@langchain/*` | `formula-rag-graph.ts` |
+| RAG graph (LangGraph) | `@langchain/*` | `formula-rag-graph.ts` (plan → retrieve → check → **post-retrieval tools** validate / evaluate / askClarification → polished answer) |
+| Clarification graph (LangGraph) | `@langchain/*` | `formula-clarification-graph.ts` (full `AGENT_TOOLS` including `retrieveDocs`) |
 | Embeddings (pgvector) | `@langchain/openai` | `formulaEmbeddings` |
 | Provider config (Vercel) | `@ai-sdk/openai` | `getVercelAIChatModel` in llm-config |
 | Provider config (LangChain) | `@langchain/openai` | `getLangChainChatModel` in llm-config |
@@ -67,6 +68,7 @@ The `ai/react` export is deprecated. Use `@ai-sdk/react` for `useChat`, `useComp
 We use **both** Vercel AI SDK and LangChain:
 - **Vercel AI** for client hooks (`useChat`) and title generation (`getVercelAITitleModel`)
 - **LangChain** for all chat agents (Direct, RAG, Clarification): `formula-direct-chat.ts`, `formula-rag-graph.ts`, `formula-clarification-graph.ts` — unified streaming via `createDataStreamResponse` + LangChain `model.stream()`; LangSmith tracing for all
+- **Tool parity:** RAG and Clarification both run `validateFormula`, `evaluateFormula`, and `askClarification` after relevant context is available. RAG omits a second `retrieveDocs` call (docs come from the graph retrieve step); Clarification may call `retrieveDocs` anytime. Direct mode has no tool calls (full catalog in the prompt).
 
 ## Common Deprecations
 
