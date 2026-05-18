@@ -1,7 +1,7 @@
 /**
  * Tokenizer-based formula formatter (no parser).
  * Break args into lines only when: (1) any argument is a function call, or (2) more than 3 parameters.
- * Otherwise keep the whole call on one line. Closing ) stays with last argument.
+ * Otherwise keep the whole call on one line. When args are broken across lines, the matching closing ) is on its own line.
  */
 
 import { tokenize } from "./formula-tokenizer";
@@ -48,7 +48,7 @@ function shouldBreakArgs(list: Token[], lparenIndex: number): boolean {
 /**
  * Format formula:
  * - For each (...) if (nested call OR >3 params): put all args on new lines; else one line.
- * - Closing ) stays with last argument (no lone ) on new line).
+ * - Closing ): if that call’s args were broken, newline + indent before ).
  * - Before ||/&&: newline only if line too long.
  */
 export function formatFormula(source: string): string {
@@ -117,12 +117,20 @@ export function formatFormula(source: string): string {
           emitNewlineIndent();
         }
         break;
-      case "rparen":
+      case "rparen": {
+        const openIdx =
+          lparenStack.length > 0 ? lparenStack[lparenStack.length - 1] : undefined;
+        const breakClose =
+          openIdx !== undefined && breakArgsMap.get(openIdx) === true;
         level--;
-        lparenStack.pop();
-        // Never put ) on its own line — keep it with the last argument
+        if (openIdx !== undefined) lparenStack.pop();
+        if (breakClose) {
+          emit("\n");
+          emit(INDENT.repeat(Math.max(0, level)));
+        }
         emit(text);
         break;
+      }
       case "comma":
         emit(text);
         if (next && next.type !== "rparen") {
