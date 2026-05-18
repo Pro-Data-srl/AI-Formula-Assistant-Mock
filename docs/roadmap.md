@@ -69,7 +69,7 @@ and the AI agent design.
 - [x] Drizzle schema (conversations, messages)
 - [x] **pgvector**: table `formula_docs` (embeddings), migration, seed
       script `npm run db:seed-formula-docs`
-- [x] **FORMULA_SOURCE**: env `direct` | `rag` — switch between full
+- [x] **FORMULA_SOURCE**: env `direct` | `graph` (legacy `rag`) — switch between full
       context in prompt vs. RAG (LangGraph)
 
 ### 3.2 Integration
@@ -105,13 +105,13 @@ and the AI agent design.
   - [ ] Edge test cases / formula-test tool call
 
 ### 3.5 UX
-- [x] **Agent mode select**: input/select to switch direct vs. RAG vs.
-      Clarification (instead of env-only); extensible for further
+- [x] **Agent mode select**: input/select to switch direct vs. graph vs.
+      free (instead of env-only); extensible for further
       configurations
 - [x] Assistant lives in the existing chat panel
 - [x] **`FormulaDiff` component**: prior vs. after, side-by-side,
       character-wise red/green diff
-- [x] **Status display** (RAG mode): thinking… / planning… / loading
+- [x] **Status display** (graph / free): thinking… / planning… / loading
       docs… / evaluating… / answering…
 - [ ] Checkpoint system — schema ready, wiring pending (optional)
 - [x] **History view**: persisted chat history — schema in place,
@@ -121,40 +121,35 @@ and the AI agent design.
 - [x] Copy / insert suggested formula ("apply formula" per code block
       in chat)
 
-### 3.6 Clarification Agent ✅
+### 3.6 Free agent ✅
 
 Agent that can **ask the user clarifying questions** when the request is
-ambiguous or insufficient. Agentic loop with tools (`retrieveDocs`,
-`validateFormula`, `evaluateFormula`, `askClarification`).
+ambiguous or insufficient. LangChain **`createAgent`** (ReAct) with tools
+(`retrieveFormulaContext`, `validateFormula`, `evaluateFormula`,
+`askClarification`).
 
 **Goals:**
 - When user intent is unclear (e.g. "do that with the date", "fix the
   formula"), the agent asks targeted follow-up questions instead of
   guessing.
-- Agentic loop: agent decides which tools to call (RAG, validate,
-  evaluate); when ready, returns an answer.
+- Agentic loop: the model chooses tools (retrieval, validate, evaluate);
+  when ready, returns an answer (with optional markdown polish).
 - `askClarification` as a tool → human-in-the-loop: question is returned
-  to the user, the next message continues with full history.
+  to the user; the next message continues with full history.
 
 **Architecture:**
-- `formula-clarification-graph.ts`: LangGraph with agent + ToolNode +
-  clarify node.
-- Tools: `retrieveDocs`, `validateFormula`, `evaluateFormula`,
-  `askClarification`.
-- When `askClarification` is called → route to clarify node → return
-  question, END.
-- Next user message = new invocation with extended history (no graph
-  resume).
+- `formula-free-agent.ts`: LangChain `createAgent` + shared formula tools
+  + polish stream (same polish pattern as other modes).
 
 **Tools:**
-- **`retrieveDocs`** — RAG over `formula_docs` (pgvector)
+- **`retrieveFormulaContext`** — documentation retrieval over `formula_docs` (pgvector)
 - **`validateFormula`** — syntax, unknown functions/fields, arity
 - **`evaluateFormula`** — run with `getMockFieldValues()`
 - **`askClarification`** — returns a question to the user
   (human-in-the-loop)
 
 **Integration:**
-- Agent mode "Clarification" in the UI; the API route handles
+- Agent mode **Free agent** in the UI; the API route handles
   clarification vs. answer responses.
 - Client renders a clarification question as an assistant message; the
   user replies and resubmits.
@@ -163,26 +158,26 @@ ambiguous or insufficient. Agentic loop with tools (`retrieveDocs`,
 
 ## Phase 4: Evaluation & Agentic Extensions
 
-### 4.1 Agent comparison (Direct vs. RAG vs. Clarification)
+### 4.1 Agent comparison (Direct vs. Graph vs. Free)
 
 LangSmith-based evaluation with eval scripts; compare all three agents
 on the same test set.
 
 - [x] **Direct: LangSmith monitoring** — direct chat now uses LangChain
-      (`formula-direct-chat.ts`) like RAG and Clarification; all three
+      (`formula-direct-chat.ts`) like graph and free modes; all three
       agents are traced uniformly in LangSmith.
 - [x] **Target functions** — unified interface / adapter layer so eval
-      scripts can call the three agents (direct, RAG, Clarification)
+      scripts can call the three agents (direct, graph, free)
       as target functions (synchronous input/output, no streaming).
 - [x] **Single-run script** — manual testing: run a single request
-      against an agent (direct/RAG/Clarification), output to console
+      against an agent (direct/graph/free), output to console
       (`npm run eval:single`).
 - [x] **Evaluation dataset** — test set with requests (explain, fix,
       generate; varying difficulty, with reference outputs).
       `scripts/eval/dataset.json` — one example per task × difficulty.
 - [x] **Eval scripts** — separate executable scripts (always
       LangSmith): `npm run eval:create-dataset`,
-      `npm run eval:run [--agent direct|rag|clarification|all]`.
+      `npm run eval:run [--agent direct|graph|free|all]` (legacy: `rag` → graph, `clarification` → free).
       Requires `LANGCHAIN_API_KEY`.
 
 ### 4.2 Evaluators (priority)
@@ -233,8 +228,8 @@ on the same test set.
 - [ ] **Model evaluation**: compare models (e.g. `gpt-4o-mini`,
       `gpt-5-nano`, `gpt-5-mini`) on cost, latency, and quality for
       formula tasks (explain, correct, generate).
-- [ ] **Agentic-flow evaluation**: evaluate RAG vs. direct context
-      (`FORMULA_SOURCE=rag` vs. `direct`) on success rate, retrieval
+- [ ] **Agentic-flow evaluation**: evaluate graph vs. direct context
+      (`FORMULA_SOURCE=graph` vs. `direct`; legacy `rag` maps to graph) on success rate, retrieval
       relevance, end-to-end quality; tune prompts and retrieval if
       needed.
 
@@ -264,8 +259,8 @@ on the same test set.
 | Parsing          | Custom tokenizer + Pratt parser                               |
 | Function catalog | Provider-based central registry                               |
 | Database         | Postgres + Drizzle (Docker Compose)                           |
-| Vector store     | pgvector (in Postgres), table `formula_docs`, RAG when        |
-|                  | `FORMULA_SOURCE=rag`                                          |
+| Vector store     | pgvector (in Postgres), table `formula_docs`, retrieval when   |
+|                  | `FORMULA_SOURCE=graph` (legacy: `rag`)                        |
 | Diff UI          | `diff` npm (character-wise); custom red/green render          |
 
 ---
@@ -276,6 +271,6 @@ on the same test set.
 - Prioritize UX parity with the reference Formelassistent.
 - AI features should augment, not replace, the manual formula builder.
 - **pgvector**: extension active, table `formula_docs`, seed via
-  `npm run db:seed-formula-docs`. RAG mode via `FORMULA_SOURCE=rag`;
+  `npm run db:seed-formula-docs`. Graph agent retrieval via `FORMULA_SOURCE=graph` (legacy: `rag`);
   LangSmith optional (`LANGSMITH_TRACING`, `LANGCHAIN_API_KEY`,
   `LANGCHAIN_PROJECT`).

@@ -41,7 +41,8 @@ yourself.
 - Validation: syntax, unknown functions/fields, arity
 - AI assistant with three agent modes:
   - **direct** – full function/field catalog in the system prompt
-  - **rag** / **clarification** – unified pipeline: planning coordinator LLM (no tools) → tool-coordinator LLM (tools, including embedded RAG plan→retrieve→check) → deterministic validate/evaluate gate → streamed polish; optional human clarification from the coordinator
+  - **graph** – coordinator + tool layer (embedded RAG retrieval tool, validate/evaluate, **askClarification**), review gate, streamed polish
+  - **free** – LangChain `createAgent` ReAct loop with full tool set (`retrieveDocs`, validate, evaluate, **askClarification**) and polish
     follow-up questions
 - Conversation history persisted in Postgres (Drizzle ORM)
 - Optional LangSmith tracing and an evaluation harness
@@ -104,7 +105,7 @@ See `.env.example` and `docs/ai-stack.md` for all options.
 
 ### 5. (Optional) Seed RAG documents
 
-Only required if you want to run the `rag` or `clarification` agent
+Only required if you want to run the `graph` or `free` agent
 modes:
 
 ```bash

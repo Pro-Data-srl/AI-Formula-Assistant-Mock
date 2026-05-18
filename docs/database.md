@@ -18,7 +18,7 @@ Postgres (with pgvector) is used for conversations, messages, and RAG formula do
    ```bash
    npm run db:migrate
    ```
-4. If using RAG (`FORMULA_SOURCE=rag`), seed formula docs once:
+4. If using the graph agent (`FORMULA_SOURCE=graph`, legacy: `rag`), seed formula docs once:
    ```bash
    npm run db:seed-formula-docs
    ```

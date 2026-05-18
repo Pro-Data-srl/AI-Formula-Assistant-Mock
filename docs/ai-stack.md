@@ -19,7 +19,8 @@ How we use Vercel AI SDK and LangChain, and how to avoid deprecated APIs.
 | `@langchain/openai` | LangChain OpenAI (ChatOpenAI, OpenAIEmbeddings) |
 | `@langchain/anthropic` | LangChain Anthropic |
 | `@langchain/core` | LangChain core (messages, documents) |
-| `@langchain/langgraph` | LangGraph for RAG flow (plan → retrieve → check → answer) |
+| `@langchain/langgraph` | LangGraph (tool nodes, embedded retrieval subgraph helpers) |
+| `langchain` | High-level agents (`createAgent`) for the **free** agent mode |
 | `@langchain/community` | LangChain community (e.g. pgvector) |
 
 ## Import Rules
@@ -57,8 +58,9 @@ The `ai/react` export is deprecated. Use `@ai-sdk/react` for `useChat`, `useComp
 | Use case | Package | Example |
 |----------|---------|---------|
 | Chat UI (streaming, client) | `@ai-sdk/react` | `useChat` in AssistantChat |
-| Direct chat API (LangChain) | `@langchain/*` | `formula-direct-chat.ts`; same streaming pattern as RAG |
-| RAG graph (LangGraph) | `@langchain/*` | `formula-rag-graph.ts` |
+| Direct chat API (LangChain) | `@langchain/*` | `formula-direct-chat.ts`; same streaming pattern as graph/free |
+| **Graph** agent (coordinator + tools + embedded RAG) | `@langchain/*` | `formula-unified-agent-graph.ts` (via `formula-graph-agent.ts`) |
+| **Free** agent (ReAct `createAgent`) | `langchain` + `@langchain/*` | `formula-free-agent.ts` |
 | Embeddings (pgvector) | `@langchain/openai` | `formulaEmbeddings` |
 | Provider config (Vercel) | `@ai-sdk/openai` | `getVercelAIChatModel` in llm-config |
 | Provider config (LangChain) | `@langchain/openai` | `getLangChainChatModel` in llm-config |
@@ -66,7 +68,7 @@ The `ai/react` export is deprecated. Use `@ai-sdk/react` for `useChat`, `useComp
 
 We use **both** Vercel AI SDK and LangChain:
 - **Vercel AI** for client hooks (`useChat`) and title generation (`getVercelAITitleModel`)
-- **LangChain** for all chat agents (Direct, RAG, Clarification): `formula-direct-chat.ts`, `formula-rag-graph.ts` / `formula-clarification-graph.ts` (both call `formula-unified-agent-graph.ts` — planning **coordinator** LLM without tools, **tool-coordinator** LLM with tools including embedded RAG retrieval, deterministic validate/evaluate gate, then polish stream); LangSmith tracing for all. Env: `COORDINATOR_LLM`, `TOOL_COORDINATOR_LLM`, `AGENTIC_RAG_LLM` (inner plan/check), `CLARIFICATION_CHAT_LLM` (polish).
+- **LangChain** for **direct** chat, **graph** agent (unified coordinator + tool coordinator + deterministic review + polish), and **free** agent (`createAgent` + tools + polish). Env: `COORDINATOR_LLM`, `TOOL_COORDINATOR_LLM`, `AGENTIC_RAG_LLM` (inner plan/check for embedded retrieval), `FORMULA_AGENT_LLM`, `CLARIFICATION_CHAT_LLM` (polish), `SIMPLE_CHAT_LLM` (direct).
 
 ## Common Deprecations
 
