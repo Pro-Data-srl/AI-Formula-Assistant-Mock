@@ -1,6 +1,6 @@
 # AI Stack: Vercel AI SDK & LangChain
 
-**Last updated: 2025-03-17**
+**Last updated: 2026-05-18**
 
 > **Maintenance:** If this document is older than 3 months, check the changelogs for updates and refresh this rule:
 > - [Vercel AI SDK changelog](https://github.com/vercel/ai/releases)
@@ -22,6 +22,12 @@ How we use Vercel AI SDK and LangChain, and how to avoid deprecated APIs.
 | `@langchain/langgraph` | LangGraph (tool nodes, embedded retrieval subgraph helpers) |
 | `langchain` | High-level agents (`createAgent`) for the **free** agent mode |
 | `@langchain/community` | LangChain community (e.g. pgvector) |
+
+### `langchain` vs `@langchain/core`
+
+The **`langchain`** package is not redundant with **`@langchain/core`**. Core holds shared primitives (messages, documents, runnables, tracing hooks). High-level **agents** such as **`createAgent`** (used in `formula-free-agent.ts`) are exported from **`langchain`**, not from core. Dropping `langchain` would mean reimplementing that agent loop or wiring an equivalent graph by hand.
+
+**Version alignment:** LangChain.js publishes **`@langchain/*`** and **`langchain`** on independent semver lines that still target the same major (`1.x` today). The **`langchain`** package declares a **peer dependency** on a compatible **`@langchain/core`** range; npm resolves one shared `@langchain/core` for the tree (see `package-lock.json` after `npm install`). Keep all LangChain packages on the **same major** and refresh the lockfile when bumping `langchain` so peers stay satisfied.
 
 ## Import Rules
 
