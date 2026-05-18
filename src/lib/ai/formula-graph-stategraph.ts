@@ -117,6 +117,10 @@ function toBaseMessages(msgs: GraphAgentChatMessage[]): BaseMessage[] {
   });
 }
 
+/**
+ * Fallback when the coordinator omits {@code formula_candidate}: first fenced code block in markdown.
+ * Prefer structured {@code formula_candidate} from the finalize branch (see {@link GRAPH_PLANNING_COORDINATOR_SYSTEM}).
+ */
 function extractFormulaFromMarkdown(md: string): string | undefined {
   const fence = md.match(/```(?:[a-zA-Z]*)?\s*([\s\S]*?)```/);
   if (!fence?.[1]) return undefined;

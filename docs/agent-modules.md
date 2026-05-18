@@ -11,6 +11,19 @@ Maps `src/lib/ai` (and related prompts) to **graph** agent, **free** agent, or *
 | `prompting/graph-planning-coordinator.ts` | System prompt `GRAPH_PLANNING_COORDINATOR_SYSTEM` for the planning coordinator. |
 | `tool-coordinator-phase.ts` | Tool coordinator loop + LangGraph `ToolNode` for tool execution. |
 
+### Graph planning coordinator: answer text vs formula (structured output)
+
+The planning coordinator already returns **JSON-shaped structured output** (`withStructuredOutput` + Zod in `formula-graph-stategraph.ts`): branch **`finalize`** carries **`draft_markdown`** (full draft for the polish model) and optional **`formula_candidate`** (exact formula string for deterministic validate/evaluate). If **`formula_candidate`** is missing, the pipeline falls back to **`extractFormulaFromMarkdown`** (first fenced code block) — convenient but brittle compared to an explicit field.
+
+**Options (discussion):**
+
+1. **Stay close to current schema** — Prompt and eval pressure so **`formula_candidate`** is filled whenever a concrete formula exists; keep fence parsing only as safety net (lowest churn).
+2. **Split finalize fields further** — e.g. `explanation_markdown` + `formula_literal` (+ optional `has_formula: boolean`) so the model never mixes “human prose” and “machine formula” in one blob; polish consumes only `explanation_markdown` for wording, review uses `formula_literal` only (clearer contract, requires prompt + schema migration).
+3. **Second structured extraction call** — After finalize, a tiny Haiku-style pass outputs `{ formula, confidence }` from `draft_markdown` (extra latency/cost; redundant if (1) or (2) work).
+4. **Tool-only formula** — Force “propose formula” through `validateFormula` / editor flow only (heavy UX change; not ideal for chat-first prototype).
+
+Recommendation for this repo: **(1) now**; consider **(2)** if product wants strict separation for API consumers or analytics.
+
 ## Free agent (`FORMULA_SOURCE=free`, legacy `clarification`)
 
 | File | Role |
