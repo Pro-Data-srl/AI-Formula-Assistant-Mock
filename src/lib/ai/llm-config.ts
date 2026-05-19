@@ -30,6 +30,8 @@ const ENV_KEYS = {
   COORDINATOR_LLM: "COORDINATOR_LLM",
   /** Graph agent: tool coordinator (binds tools including RAG retrieval tool). */
   TOOL_COORDINATOR_LLM: "TOOL_COORDINATOR_LLM",
+  /** Graph agent: field resolver (structured output; full catalog in prompt). */
+  FIELD_AGENT_LLM: "FIELD_AGENT_LLM",
   /** Embeddings (e.g. formula docs RAG). */
   EMBEDDINGS: "EMBEDDINGS",
   /** Conversation title generation (cheapest model). */
@@ -46,6 +48,7 @@ const DEFAULTS = {
   /** Structured coordinator decisions; keep :none on Anthropic (extended thinking conflicts). */
   [ENV_KEYS.COORDINATOR_LLM]: "anthropic:claude-haiku-4-5:none",
   [ENV_KEYS.TOOL_COORDINATOR_LLM]: "anthropic:claude-haiku-4-5:low",
+  [ENV_KEYS.FIELD_AGENT_LLM]: "anthropic:claude-haiku-4-5:none",
   [ENV_KEYS.EMBEDDINGS]: "openai:text-embedding-3-small",
   [ENV_KEYS.TITLE_LLM]: "anthropic:claude-haiku-4-5:low",
 } as const;
@@ -74,6 +77,8 @@ export const LLMUseCases = {
   COORDINATOR: "coordinator",
   /** Graph agent: tool coordinator (binds tools). */
   TOOL_COORDINATOR: "tool_coordinator",
+  /** Graph agent: field resolver (structured output). */
+  FIELD_AGENT: "field_agent",
 } as const;
 
 export type LLMUseCase = (typeof LLMUseCases)[keyof typeof LLMUseCases];
@@ -115,6 +120,7 @@ const USE_CASE_TO_ENV: Record<LLMUseCase, keyof typeof ENV_KEYS> = {
   clarification_chat: ENV_KEYS.CLARIFICATION_CHAT_LLM,
   coordinator: ENV_KEYS.COORDINATOR_LLM,
   tool_coordinator: ENV_KEYS.TOOL_COORDINATOR_LLM,
+  field_agent: ENV_KEYS.FIELD_AGENT_LLM,
 };
 
 /** Parse provider:model[:reasoning|temperature]. Third part: either reasoning (none|low|medium|high) or temperature (0–2). */

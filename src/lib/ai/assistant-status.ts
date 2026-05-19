@@ -10,6 +10,7 @@ export type AssistantStatusPhase =
   | "answering"
   | "validating"
   | "clarifying"
+  | "resolving_fields"
   | "digesting";
 
 const LABELS: Record<AssistantStatusPhase, string> = {
@@ -21,6 +22,7 @@ const LABELS: Record<AssistantStatusPhase, string> = {
   answering: "Antwort wird erstellt",
   validating: "Formel wird validiert",
   clarifying: "Rückfrage wird vorbereitet",
+  resolving_fields: "Felder werden zugeordnet",
   digesting: "Ergebnisse werden zusammengefasst",
 };
 

@@ -15,9 +15,17 @@ export class LangChainToolStatusCallback<S extends string> extends BaseCallbackH
 
   constructor(
     private readonly onStatus: (status: S) => void,
-    private readonly toolToStatus: Record<string, S>
+    private readonly toolToStatus: Record<string, S>,
+    /** When set, emitted at the start of each chat-model run (e.g. ReAct turns). */
+    private readonly llmStartStatus?: S
   ) {
     super();
+  }
+
+  async handleChatModelStart() {
+    if (this.llmStartStatus !== undefined) {
+      this.onStatus(this.llmStartStatus);
+    }
   }
 
   async handleToolStart(

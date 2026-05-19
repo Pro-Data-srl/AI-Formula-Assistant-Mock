@@ -8,7 +8,14 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { SendHorizontal, ClipboardPaste, Loader2, History, MessageSquarePlus } from "lucide-react";
+import {
+  SendHorizontal,
+  ClipboardPaste,
+  Loader2,
+  History,
+  MessageSquarePlus,
+  ChevronRight,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useFormel } from "@/contexts/formel-context";
 import { FormulaDiff } from "@/components/formula-diff";
@@ -59,6 +66,7 @@ const VALID_STATUS_PHASES = new Set<AssistantStatusPhase>([
   "answering",
   "validating",
   "clarifying",
+  "resolving_fields",
   "digesting",
 ]);
 
@@ -81,10 +89,72 @@ function parseStatusFromDataPart(line: string): AssistantStatusPhase | null {
   return null;
 }
 
+/** Live stream steps (expanded) or persisted steps (collapsed in `<details>`). */
+function MessageStatusSteps({
+  phases,
+  isLive,
+}: {
+  phases: AssistantStatusPhase[];
+  isLive: boolean;
+}) {
+  if (isLive && phases.length === 0) {
+    return (
+      <div className="mb-2 border-b border-border/50 pb-2 text-muted-foreground">
+        <span className="inline-flex items-center gap-1">
+          Denke nach
+          <span className="status-typing-dots inline-flex" aria-hidden>
+            <span>.</span>
+            <span>.</span>
+            <span>.</span>
+          </span>
+        </span>
+      </div>
+    );
+  }
+  if (phases.length === 0) return null;
+
+  if (isLive) {
+    return (
+      <div className="mb-2 flex flex-col gap-1 border-b border-border/50 pb-2 text-muted-foreground">
+        {phases.slice(0, -1).map((phase, i) => (
+          <span key={`${phase}-${i}`}>{getAssistantStatusLabel(phase)}</span>
+        ))}
+        <span className="inline-flex items-center gap-1">
+          {getAssistantStatusLabel(phases[phases.length - 1])}
+          <span className="status-typing-dots inline-flex" aria-hidden>
+            <span>.</span>
+            <span>.</span>
+            <span>.</span>
+          </span>
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <details className="group mb-2 border-b border-border/50 pb-2 text-muted-foreground">
+      <summary className="flex cursor-pointer list-none items-center gap-1 text-xs [&::-webkit-details-marker]:hidden">
+        <ChevronRight className="size-3 shrink-0 transition-transform group-open:rotate-90" />
+        Agent-Schritte ({phases.length})
+      </summary>
+      <div className="mt-2 flex flex-col gap-1 pl-4">
+        {phases.map((phase, i) => (
+          <span key={`${phase}-${i}`}>{getAssistantStatusLabel(phase)}</span>
+        ))}
+      </div>
+    </details>
+  );
+}
+
 export function AssistantChat() {
   const { formula, setFormula } = useFormel();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const prevIsLoadingRef = useRef(false);
+  const streamStatusRef = useRef<AssistantStatusPhase[]>([]);
   const [streamStatusHistory, setStreamStatusHistory] = useState<AssistantStatusPhase[]>([]);
+  const [messageStatusHistory, setMessageStatusHistory] = useState<
+    Record<string, AssistantStatusPhase[]>
+  >({});
   const [agentMode, setAgentMode] = useState<typeof AgentModes[keyof typeof AgentModes]>(
     AgentModes.DIRECT
   );
@@ -112,7 +182,9 @@ export function AssistantChat() {
             if (status) {
               setStreamStatusHistory((prev) => {
                 if (prev[prev.length - 1] === status) return prev;
-                return [...prev, status];
+                const next = [...prev, status];
+                streamStatusRef.current = next;
+                return next;
               });
             }
           }
@@ -156,6 +228,9 @@ export function AssistantChat() {
 
   function handleNewChat() {
     if (isLoading) stop();
+    setMessageStatusHistory({});
+    streamStatusRef.current = [];
+    setStreamStatusHistory([]);
     setChatId(crypto.randomUUID());
   }
 
@@ -166,6 +241,9 @@ export function AssistantChat() {
       const data = (await res.json()) as { messages?: { id: string; role: string; content: string }[] };
       const msgs = data.messages ?? [];
       setChatId(convId);
+      setMessageStatusHistory({});
+      streamStatusRef.current = [];
+      setStreamStatusHistory([]);
       setMessages(
         msgs.map((m) => ({
           id: m.id,
@@ -183,50 +261,43 @@ export function AssistantChat() {
     scrollRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // Persist live steps on the assistant message when the stream finishes; reset buffer on new request.
   useEffect(() => {
-    if (isLoading) setStreamStatusHistory([]);
-  }, [isLoading]);
-
-  const lastMsg = messages[messages.length - 1];
-  const isLastAssistantWhileLoading = lastMsg?.role === "assistant" && isLoading;
-  const showStatusWithLastMessage =
-    lastMsg?.role === "assistant" && (isLoading || streamStatusHistory.length > 0);
-  const messagesToShow =
-    showStatusWithLastMessage ? messages.slice(0, -1) : messages;
-
-  function renderStatusBlock() {
-    if (streamStatusHistory.length === 0) {
-      return (
-        <span className="inline-flex items-center gap-1">
-          Denke nach
-          <span className="status-typing-dots inline-flex" aria-hidden>
-            <span>.</span>
-            <span>.</span>
-            <span>.</span>
-          </span>
-        </span>
-      );
+    if (prevIsLoadingRef.current && !isLoading) {
+      const last = messages[messages.length - 1];
+      const phases = streamStatusRef.current;
+      if (last?.role === "assistant" && phases.length > 0) {
+        setMessageStatusHistory((prev) => ({
+          ...prev,
+          [last.id]: phases,
+        }));
+      }
+      streamStatusRef.current = [];
+      setStreamStatusHistory([]);
+    } else if (!prevIsLoadingRef.current && isLoading) {
+      streamStatusRef.current = [];
+      setStreamStatusHistory([]);
     }
-    return (
-      <>
-        {streamStatusHistory.slice(0, -1).map((phase, i) => (
-          <span key={`${phase}-${i}`}>{getAssistantStatusLabel(phase)}</span>
-        ))}
-        <span className="inline-flex items-center gap-1">
-          {getAssistantStatusLabel(streamStatusHistory[streamStatusHistory.length - 1])}
-          {isLoading && (
-            <span className="status-typing-dots inline-flex" aria-hidden>
-              <span>.</span>
-              <span>.</span>
-              <span>.</span>
-            </span>
-          )}
-        </span>
-      </>
-    );
+    prevIsLoadingRef.current = isLoading;
+  }, [isLoading, messages]);
+
+  function getStatusPhasesForMessage(
+    msg: (typeof messages)[0],
+    index: number
+  ): { phases: AssistantStatusPhase[]; isLive: boolean } {
+    const isLast = index === messages.length - 1;
+    const isLive = isLast && msg.role === "assistant" && isLoading;
+    if (isLive) {
+      return { phases: streamStatusHistory, isLive: true };
+    }
+    const persisted = messageStatusHistory[msg.id];
+    return { phases: persisted ?? [], isLive: false };
   }
 
-  function renderMessage(msg: (typeof messages)[0], prependStatus = false) {
+  function renderMessage(
+    msg: (typeof messages)[0],
+    status?: { phases: AssistantStatusPhase[]; isLive: boolean }
+  ) {
     const content = typeof msg.content === "string" ? msg.content : "";
     const codeBlocks = msg.role === "assistant" ? getCodeBlocksFromMessage(content) : [];
     const blocksWithDiff = codeBlocks.filter((block) => block !== formula && block.trim() !== "");
@@ -242,10 +313,8 @@ export function AssistantChat() {
       >
         {msg.role === "assistant" ? (
           <>
-            {prependStatus && (
-              <div className="mb-2 flex flex-col gap-1 border-b border-border/50 pb-2 text-muted-foreground">
-                {renderStatusBlock()}
-              </div>
+            {status && (status.isLive || status.phases.length > 0) && (
+              <MessageStatusSteps phases={status.phases} isLive={status.isLive} />
             )}
             <div className="assistant-markdown">
               <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
@@ -377,9 +446,11 @@ export function AssistantChat() {
                 mitgeteilt.
               </p>
             )}
-            {messagesToShow.map((msg) => renderMessage(msg))}
-            {showStatusWithLastMessage && lastMsg && (
-              renderMessage(lastMsg, true)
+            {messages.map((msg, index) =>
+              renderMessage(
+                msg,
+                msg.role === "assistant" ? getStatusPhasesForMessage(msg, index) : undefined
+              )
             )}
             <div ref={scrollRef} />
           </div>

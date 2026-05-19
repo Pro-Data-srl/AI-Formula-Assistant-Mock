@@ -98,7 +98,7 @@ export const askClarificationTool = tool(
   {
     name: ASK_CLARIFICATION_TOOL_NAME,
     description:
-      "Rufe auf, wenn die Nutzerabsicht unklar ist: mehrdeutige Formulierung, fehlende Feldnamen, widersprüchliche Anforderungen. Stellt die Rückfrage an den Nutzer. Nicht aufrufen wenn du genug Kontext hast.",
+      "Rufe auf, wenn die Nutzerabsicht unklar ist: mehrdeutige Formulierung, widersprüchliche Anforderungen. Stellt die Rückfrage an den Nutzer. Nicht aufrufen wenn die Feldliste im Kontext eine eindeutige Zuordnung erlaubt oder du genug Kontext hast.",
     schema: z.object({
       question: z
         .string()

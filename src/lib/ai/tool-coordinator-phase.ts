@@ -19,6 +19,7 @@ import type { BaseCallbackHandler } from "@langchain/core/callbacks/base";
 import { z } from "zod";
 import { getLangChainChatModel, LLMUseCases } from "@/lib/ai/llm-config";
 import { langchainMessageContentToText } from "@/lib/ai/langchain-message-content";
+import { buildFieldListContext } from "@/lib/ai/formula-context";
 import { TOOL_COORDINATOR_SYSTEM, TOOL_DIGEST_SYSTEM } from "@/lib/ai/prompting/tool-coordinator";
 import {
   validateFormulaTool,
@@ -141,10 +142,21 @@ export async function runToolCoordinatorPhase(input: {
   const toolNode = new ToolNode(tools);
   const modelWithTools = toolCoordinatorModel.bindTools!(tools);
 
+  const fieldList = buildFieldListContext();
   const thread: BaseMessage[] = [
     new SystemMessage(TOOL_COORDINATOR_SYSTEM),
     new HumanMessage(
-      `Auftrag vom Planungs-Koordinator:\n${capabilityBrief}\n\nChat-Kontext (Auszug):\n${formatChatTail(messages)}`
+      [
+        `Auftrag vom Planungs-Koordinator:\n${capabilityBrief}`,
+        "",
+        "## Verfügbare Felder (interne Namen für field(\"…\"); keine RAG nötig)",
+        fieldList,
+        "",
+        `Chat-Kontext (Auszug):\n${formatChatTail(messages)}`,
+        currentFormula.trim()
+          ? `\nAktuelle Formel im Editor:\n${currentFormula.trim()}`
+          : "",
+      ].join("\n")
     ),
   ];
 

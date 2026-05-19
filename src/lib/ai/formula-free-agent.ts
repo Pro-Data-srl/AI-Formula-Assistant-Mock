@@ -13,8 +13,10 @@ import {
   isToolMessage,
   type BaseMessage,
 } from "@langchain/core/messages";
+import type { BaseCallbackHandler } from "@langchain/core/callbacks/base";
 import { getLangChainChatModel, LLMUseCases } from "@/lib/ai/llm-config";
 import { langchainMessageContentToText } from "@/lib/ai/langchain-message-content";
+import { LangChainToolStatusCallback } from "@/lib/ai/langchain-tool-status-callback";
 import { buildClarificationAgentSystemPrompt, buildClarificationAnswerSystemPrompt } from "@/lib/ai/prompting";
 import { MOCK_FIELDS } from "@/data/fields";
 import { AGENT_TOOLS, ASK_CLARIFICATION_TOOL_NAME } from "@/lib/ai/tools";
@@ -26,6 +28,13 @@ export type FreeFormulaAgentStatus =
   | "validating"
   | "evaluating"
   | "clarifying";
+
+const TOOL_TO_STATUS: Record<string, FreeFormulaAgentStatus> = {
+  retrieveDocs: "retrieving",
+  validateFormula: "validating",
+  evaluateFormula: "evaluating",
+  askClarification: "clarifying",
+};
 
 export type FreeFormulaAgentInput = {
   messages: { role: string; content: string }[];
@@ -45,6 +54,49 @@ function toBaseMessages(msgs: FreeFormulaAgentInput["messages"]): BaseMessage[] 
   });
 }
 
+/** Tool names from {@link AIMessage.tool_calls} and Anthropic {@code tool_use} content blocks. */
+function getToolCallNames(message: AIMessage): string[] {
+  const names: string[] = [];
+  for (const tc of message.tool_calls ?? []) {
+    if (tc.name) names.push(tc.name);
+  }
+  const content = message.content;
+  if (Array.isArray(content)) {
+    for (const block of content) {
+      if (
+        block &&
+        typeof block === "object" &&
+        "type" in block &&
+        block.type === "tool_use" &&
+        "name" in block &&
+        typeof block.name === "string"
+      ) {
+        names.push(block.name);
+      }
+    }
+  }
+  return names;
+}
+
+/**
+ * Replays status phases from new agent messages (matches LangSmith tool/model turns).
+ * Fallback when {@code createAgent} does not forward tool callbacks on invoke.
+ */
+function emitStatusesFromAgentMessages(
+  msgs: BaseMessage[],
+  onStatus?: (status: FreeFormulaAgentStatus) => void
+): void {
+  if (!onStatus) return;
+  for (const m of msgs) {
+    if (!isAIMessage(m)) continue;
+    onStatus("thinking");
+    for (const name of getToolCallNames(m)) {
+      const phase = TOOL_TO_STATUS[name];
+      if (phase) onStatus(phase);
+    }
+  }
+}
+
 /**
  * Runs the free-form tool agent (LangChain agent helper) and optional markdown polish.
  */
@@ -56,7 +108,20 @@ export async function runFreeFormulaAgent(
   } = {}
 ): Promise<FreeFormulaAgentResult> {
   const { onStatus, onChunk } = options;
-  onStatus?.("thinking");
+  let sawToolPhase = false;
+  const emitStatus = (status: FreeFormulaAgentStatus) => {
+    if (
+      status === "retrieving" ||
+      status === "validating" ||
+      status === "evaluating" ||
+      status === "clarifying"
+    ) {
+      sawToolPhase = true;
+    }
+    onStatus?.(status);
+  };
+
+  emitStatus("thinking");
 
   const systemPrompt = buildClarificationAgentSystemPrompt({
     fields: MOCK_FIELDS.map((f) => ({ name: f.name, internalName: f.internalName })),
@@ -71,26 +136,39 @@ export async function runFreeFormulaAgent(
   });
 
   const invokeMessages = toBaseMessages(input.messages ?? []);
+  const priorMessageCount = invokeMessages.length;
+  const callbacks: BaseCallbackHandler[] = onStatus
+    ? [new LangChainToolStatusCallback(emitStatus, TOOL_TO_STATUS, "thinking")]
+    : [];
+
   const result = await agent.invoke(
     { messages: invokeMessages },
-    { recursionLimit: 40 }
+    {
+      recursionLimit: 40,
+      callbacks: callbacks.length ? callbacks : undefined,
+    }
   );
 
   const msgs = (result as { messages?: BaseMessage[] }).messages ?? [];
+  const newMsgs = msgs.slice(priorMessageCount);
 
-  for (let i = msgs.length - 1; i >= 0; i--) {
-    const m = msgs[i];
+  if (!sawToolPhase) {
+    emitStatusesFromAgentMessages(newMsgs, emitStatus);
+  }
+
+  for (let i = newMsgs.length - 1; i >= 0; i--) {
+    const m = newMsgs[i];
     if (isToolMessage(m) && m.name === ASK_CLARIFICATION_TOOL_NAME) {
       const q = typeof m.content === "string" ? m.content : "";
-      onStatus?.("clarifying");
+      emitStatus("clarifying");
       return { type: "clarification", question: q.trim() || "Könnten Sie bitte präzisieren?" };
     }
   }
 
-  const lastAi = [...msgs].reverse().find(isAIMessage);
+  const lastAi = [...newMsgs].reverse().find(isAIMessage);
   const agentConclusion = lastAi ? langchainMessageContentToText(lastAi.content) : "";
 
-  onStatus?.("answering");
+  emitStatus("answering");
   const polishModel = getLangChainChatModel(LLMUseCases.CLARIFICATION_CHAT);
   const polishSystem = buildClarificationAnswerSystemPrompt();
   const polishUser = new HumanMessage(

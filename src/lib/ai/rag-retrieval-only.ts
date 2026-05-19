@@ -1,6 +1,6 @@
 /**
  * RAG retrieval loop (plan → retrieve → check) without a final answer model.
- * Used by the {@code retrieveFormulaContext} tool inside the tool-coordinator LLM.
+ * Used by the graph {@code function_rag} capability (and the free-agent {@code retrieveDocs} tool).
  *
  * @author Lukas Alber
  */

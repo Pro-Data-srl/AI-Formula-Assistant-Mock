@@ -7,22 +7,30 @@ Maps `src/lib/ai` (and related prompts) to **graph** agent, **free** agent, or *
 | File | Role |
 |------|------|
 | `formula-graph-agent.ts` | Public API: `runGraphFormulaAgent`, re-exported types. |
-| `formula-graph-stategraph.ts` | LangGraph `StateGraph`: nodes (`coordinate_plan`, `capabilities`, `finalize_review`, `polish`), conditional edges, `compile()`. |
-| `prompting/graph-planning-coordinator.ts` | System prompt `GRAPH_PLANNING_COORDINATOR_SYSTEM` for the planning coordinator. |
-| `tool-coordinator-phase.ts` | Tool coordinator loop + LangGraph `ToolNode` for tool execution. |
+| `formula-graph-stategraph.ts` | LangGraph `StateGraph`: `coordinate_plan` → `gather_capabilities` (parallel) → `finalize_review` → `polish`. |
+| `graph-capabilities.ts` | Dispatches coordinator `requests[]` in parallel (RAG, fields, validate, evaluate, clarify). |
+| `field-agent.ts` | Field resolver LLM (full catalog in prompt; structured output). |
+| `prompting/graph-planning-coordinator.ts` | Planning coordinator system prompt (`gather` / `finalize`). |
+| `prompting/field-agent.ts` | Field agent system prompt. |
+| `rag-retrieval-only.ts` | Function RAG loop for `function_rag` capability. |
 
-### Graph planning coordinator: answer text vs formula (structured output)
+### Planning coordinator
 
-The planning coordinator already returns **JSON-shaped structured output** (`withStructuredOutput` + Zod in `formula-graph-stategraph.ts`): branch **`finalize`** carries **`draft_markdown`** (full draft for the polish model) and optional **`formula_candidate`** (exact formula string for deterministic validate/evaluate). If **`formula_candidate`** is missing, the pipeline falls back to **`extractFormulaFromMarkdown`** (first fenced code block) — convenient but brittle compared to an explicit field.
+Structured output (`gather` | `finalize`):
 
-**Options (discussion):**
+- **`gather`**: `requests[]` with `request_type` + parameters; optional `draft_markdown` / `formula_candidate` in parallel.
+- **`finalize`**: `draft_markdown` + optional `formula_candidate` → deterministic review → polish stream.
 
-1. **Stay close to current schema** — Prompt and eval pressure so **`formula_candidate`** is filled whenever a concrete formula exists; keep fence parsing only as safety net (lowest churn).
-2. **Split finalize fields further** — e.g. `explanation_markdown` + `formula_literal` (+ optional `has_formula: boolean`) so the model never mixes “human prose” and “machine formula” in one blob; polish consumes only `explanation_markdown` for wording, review uses `formula_literal` only (clearer contract, requires prompt + schema migration).
-3. **Second structured extraction call** — After finalize, a tiny Haiku-style pass outputs `{ formula, confidence }` from `draft_markdown` (extra latency/cost; redundant if (1) or (2) work).
-4. **Tool-only formula** — Force “propose formula” through `validateFormula` / editor flow only (heavy UX change; not ideal for chat-first prototype).
+Capabilities (no monolithic tool-coordinator ReAct loop):
 
-Recommendation for this repo: **(1) now**; consider **(2)** if product wants strict separation for API consumers or analytics.
+| `request_type` | Runner |
+|----------------|--------|
+| `function_rag` | `runRagRetrievalOnly` |
+| `resolve_fields` | `runFieldResolveAgent` |
+| `validate` / `evaluate` | `formula-executor` (deterministic) |
+| `clarify` | HITL (coordinator only; exclusive) |
+
+Legacy: `tool-coordinator-phase.ts` remains for reference but is **not** used by the graph agent.
 
 ## Free agent (`FORMULA_SOURCE=free`, legacy `clarification`)
 
@@ -35,16 +43,13 @@ Recommendation for this repo: **(1) now**; consider **(2)** if product wants str
 | File | Role |
 |------|------|
 | `formula-direct-chat.ts` | **Direct** mode chat. |
-| `llm-config.ts` | Provider wiring and `LLMUseCases` (includes graph- and free-specific cases). |
+| `llm-config.ts` | Provider wiring and `LLMUseCases`. |
 | `langchain-message-content.ts` | Text extraction from LangChain message chunks. |
-| `langchain-tool-status-callback.ts` | Maps tool events to status phases (used by graph tool phase). |
-| `rag-retrieval-only.ts` | Embedded RAG loop for the `retrieveFormulaContext` tool (graph tool coordinator; optional patterns elsewhere). |
-| `tools/index.ts` | Shared LangChain tools (`validateFormula`, `evaluateFormula`, `askClarification`, …). |
-| `prompting/tool-coordinator.ts` | Tool-coordinator system prompts. |
+| `tools/index.ts` | Shared LangChain tools (free agent). |
 | `prompting/clarification-answer.ts` | Polish / answer-shaping prompt (graph polish node + other modes). |
-| `prompting/rag-plan.ts`, `prompting/rag-check.ts` | RAG plan/check prompts (used inside `rag-retrieval-only`). |
-| `assistant-status.ts` | Client-facing status typing if shared with UI. |
-| `formula-context.ts`, `clarification-response.ts` | Supporting types/helpers as used by routes/UI. |
+| `prompting/rag-plan.ts`, `prompting/rag-check.ts` | RAG plan/check prompts. |
+| `assistant-status.ts` | Client-facing status typing. |
+| `formula-context.ts` | Context builders (direct mode). |
 
 Eval / scripts:
 

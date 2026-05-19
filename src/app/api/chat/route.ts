@@ -15,6 +15,22 @@ export const maxDuration = 30;
 
 const DEFAULT_FORMULA_SOURCE = (process.env.FORMULA_SOURCE ?? AgentModes.DIRECT) as string;
 
+/**
+ * Converts a raw error into a user-facing message string.
+ * Handles known network/infrastructure error codes explicitly so the client
+ * receives an actionable message instead of a raw stack trace or empty string.
+ */
+function formatApiError(error: unknown): string {
+  if (error instanceof Error) {
+    // ECONNREFUSED is thrown when the database (or any downstream TCP service) is unreachable.
+    if ("code" in error && error.code === "ECONNREFUSED") {
+      return "Database connection refused — make sure the PostgreSQL container is running (`docker compose up -d`).";
+    }
+    return error.message || "An unexpected error occurred.";
+  }
+  return String(error);
+}
+
 /** Accepts legacy env values {@code rag} / {@code clarification} from older configs. */
 function normalizeAgentMode(mode: string): string {
   if (mode === "rag") return AgentModes.GRAPH;
@@ -87,7 +103,7 @@ async function handleDirectChat(
     },
     onError: (error) => {
       console.error("[chat/direct]", error);
-      return String(error instanceof Error ? error.message : error);
+      return formatApiError(error);
     },
   });
 }
@@ -137,7 +153,7 @@ async function handleGraphChat(
     },
     onError: (error) => {
       console.error("[chat/graph]", error);
-      return String(error instanceof Error ? error.message : error);
+      return formatApiError(error);
     },
   });
 }
@@ -183,7 +199,7 @@ async function handleFreeChat(
     },
     onError: (error) => {
       console.error("[chat/free]", error);
-      return String(error instanceof Error ? error.message : error);
+      return formatApiError(error);
     },
   });
 }
